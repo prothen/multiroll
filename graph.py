@@ -172,21 +172,44 @@ class MyGraph(object):
                     print('Add vertex as unknown:\t{}'.format(si))
                     vertices[si] = None
                     pass
-            # 
-            #print([Direction(di) for di in numpy.nonzero(v)[0]])
-            #print([[Control(ci) for ci in numpy.nonzero(l[vi])[0]] for vi in v_idx])
+
+    def _explore_vertices(self):
+        for vertex in self.vertices.keys():
+            # check if vertex is not None 
+            # --> SKIP
+            print('Explore vertex: {}'.format(vertex))
+            # for all controls in VI
+            #   --> return GOAL vertices VIG
+            #   --> store VI+CI, VIG+CIG
+            #       --> if not all returned RUNTIMEERROR
+
+            # NOTE: VI must have 
+            #   --> #amount of edges as 
+            #   --> #controls
+
+            # SET EDGE TO NOT NONE
+            #   --> set found Edges
             
-            #print('R{:3}-C{:3}:{:08} #{:04b} #{:04b} #{:04b} #{:04b}'.format(r,c,
-            #                        self.grid[r][c], *l))
-            #print('R{:3}-C{:3}:{:8} #{:4b} #{:4b} #{:4b} #{:4b}'.format(r,c,
-            #                        0, *v))
-        # pr#int('grid {}'.format(self.grid))
-        # print(numpy.nonzero(self.grid))
-        # print(self.T.transitions)
+            # get all goal edges of VI 
+            #   --> get controls for VIG
+            #   --> if 
+
+            # go along all possible controls and find next vertex  (copy pasta)
+            # mark current 
+            #
+            # --> get controls for any of the edges and check if it is possible to continue to explore
 
     def show_vertices(self, env_renderer):
+        from flatland.envs.agent_utils import EnvAgent
+        #s0 = EnvAgent(initial_position=(0,0),position=(0,0),initial_direction=0,direction=0,target=(10,10))
+        #print(s0)
+        #env_renderer.renderer.plot_single_agent(
+        #        s0.position,
+        #        s0.direction,
+        #        'r', selected=True)
+        #env_renderer.renderer.plot_single_agent((0,0), 0, 'r')
         for v in self.vertices.keys():
-            env_renderer.renderer.plot_single_agent((v.r, v.c), v.d, 'r')
+            env_renderer.renderer.plot_single_agent((v.r, v.c), v.d, 'r', selected=True)
 
     def _vertex_known(self, state: State):
         return state in self.vertices.keys()
