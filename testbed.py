@@ -101,11 +101,17 @@ if __name__ == "__main__":
         # print('Step {}'.format(step))
 
     env_renderer.render_env(
-            show=True, 
+            show=False, 
             show_agents=True, 
             show_predictions=False, 
             show_observations=False)
     g.show_vertices(env_renderer) 
+    env_renderer.render_env(
+            show=True, 
+            show_agents=True, 
+            show_predictions=False, 
+            show_observations=False)
+    env_renderer.gl.show()
     input('press to close')
     #g = MyGraph()
     # select random agent initial position (Use GridTransitionMap)

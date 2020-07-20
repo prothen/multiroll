@@ -33,6 +33,14 @@ Edge = collections.namedtuple('Edge', ['vertex_1', 'vertex_2', 'attributes'])
 PartialEdge = collections.namedtuple('PartialEdge', ['vertex', 'distance'])
 
 
+class Control(enum.IntEnum):
+    NONE = 0
+    L = 1
+    F = 2
+    R = 3
+    S = 4
+    COUNT = 5
+
 class Direction(enum.IntEnum):
     N = 0
     E = 1
@@ -53,15 +61,10 @@ dynamics[Direction.E] = (lambda state: State(state.r, state.c+1, state.d))
 dynamics[Direction.S] = (lambda state: State(state.r+1, state.c, state.d))
 dynamics[Direction.W] = (lambda state: State(state.r, state.c-1, state.d))
 
+Tests = [[Control.L, -1], 
+         [Control.F, 0],
+         [Control.R, 1]]
 
-
-class Control(enum.IntEnum):
-    NONE = 0
-    L = 1
-    F = 2
-    R = 3
-    S = 4
-    COUNT = 5
 
 
 class MyGraph(object):
@@ -114,17 +117,27 @@ class MyGraph(object):
             return [idx for idx in valid_idxs if _vertex(all_control_bits[idx])  != 0]
     
         def _directions2controls(directions, direction_agent):
+            """
+
+                Note
+                    The following loop details the list comprehension below 
+                    for the sake of documentation
+                    #controls = list()
+                    #for c, ti in tests:
+                    #    d_new = (da + ti) % 4
+                    #    if d_new in allowed:
+                    #        controls += [[c, d_new]] 
+
+            """
             ds = directions
             ds_idxs = [int(i) for i in format(directions,'04b')] 
+            print(ds_idxs)
             allowed = numpy.nonzero(ds_idxs)[0]
             da = direction_agent
+ 
+            controls = [[control, (da + o)%4] for  (control, o) 
+                         in Tests if ((da + o)%4) in allowed]
 
-            tests = [[Control.L, -1], 
-                     [Control.F, 0],
-                     [Control.R, 1]]
-            
-            controls = [[control, (da+ti)] for  (control, ti) 
-                         in tests if ((da+ti)%4) in allowed]
             if not any(controls):
                 raise RuntimeError()
             return controls
@@ -132,10 +145,10 @@ class MyGraph(object):
         def _controls(all_control_bits, valid_directions):
             """ """
             controls = list()
-            #print('#################################')
-            #print('Controls')
-            #print('--> Control bits: {}'.format(all_control_bits))
-            #print('--> Valid directions: {}'.format(valid_directions))
+            print('#################################')
+            print('Controls')
+            print('--> Control bits: {}'.format(all_control_bits))
+            print('--> Valid directions: {}'.format(valid_directions))
             for d in valid_directions:
                 #idirections = [int(i) for i in format(all_control_bits[d],'04b')]
                 directions = all_control_bits[d]
@@ -212,16 +225,15 @@ class MyGraph(object):
         v = list(self.vertices.keys())[0] 
         controls = self.states[v]
         l = list()
-        print(controls)
-        print(controls[1])
         for control in controls:
             print(control)
-            #l += Direction2Target[control[1]]
+            l += [Direction2Target[control[1]]]
+            print(l)
 
-        #env_renderer.renderer.plot_transition(
-        #        position_row_col=(v.r, v.c),
-        #        transition_row_col=l
-        #       )
+            env_renderer.renderer.plot_transition(
+                    position_row_col=(v.r, v.c),
+                    transition_row_col=l
+                    )
         #env_renderer.renderer.plot_transition(
         #        position_row_col=(0,0),
         #        transition_row_col=[[0, 1]]
