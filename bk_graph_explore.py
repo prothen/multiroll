@@ -33,12 +33,12 @@ Edge = collections.namedtuple('Edge', ['vertex_1', 'vertex_2', 'attributes'])
 PartialEdge = collections.namedtuple('PartialEdge', ['vertex', 'distance'])
 
 
-class Direction(enum.IntEnum):
+class Direction(object):
     N = 0
     E = 1
     S = 2
     W = 3
-    COUNT = 4
+    n_max = 4
 
 
 dynamics = dict()
@@ -49,13 +49,12 @@ dynamics[Direction.W] = (lambda state: State(state.r, state.c-1, state.d))
 
 
 
-class Control(enum.IntEnum):
+class Controls(enum.IntEnum):
     NONE = 0
     L = 1
     F = 2
     R = 3
     S = 4
-    COUNT = 5
 
 
 class MyGraph(object):
@@ -66,86 +65,16 @@ class MyGraph(object):
         Todo
             - fetch transition map -> take nonzero elements -> find edges
             - for each vertex -> go in all directions up to next state
-            - create graph for N steps in future (define two unidirectional edges as pair)
-                - dict[e_idx] = (edge,edge)
-                --> s0,s1 or s1,s0
-                - vote from each agent
-                - allocate railway in one direction
-
     """
     def __init__(self, env):
         self.graph = networkx.Graph()
         self.n_vertices = 0  # Value('i', 0)
         self.vertices = dict()
-        self.states = dict()
         
         self.env = env
         # see RailEnvTransitions
         # GridTransitionMap (core.Transition
         self.T = env.rail 
-        self.grid = env.rail.grid
-        railway = numpy.nonzero(self.grid)
-
-    
-        def _bits(i, value):
-            """ Return direction dependent control bits. """
-            return (value >> (3 - i) * 4) & 0xF
-       
-        def _all_control_bits(r, c):
-            """ Return list of control_bits for all directions. """
-            return [_bits(d, self.grid[r][c]) for d in range(Direction.COUNT)]
-        
-        def _valid_directions(bits):
-            """ Return indices of valid directions."""
-            return [idx for idx, val in enumerate(bits) if val != 0]
-
-        def _vertex(all_control_bits):
-            """ Return true if control_bits are from a vertex. """
-            return (bin(control_bits).count("1") > 1)
-
-        def _vertex_directions(all_control_bits, valid_idxs):
-            """ Return indices of vertices at current coordinate. """
-            return [idx for idx in valid_idxs if vertex(control_bits[idx])  != 0]
-    
-        def _controls(all_control_bits)
-
-        states = self.states
-        vertex_list = self.vertices
-        # multiprocess (each vertex - for each vertex call explore)
-        # process pool
-        # compute shortest path for each state
-        # use numba for jit compilation (for updated path)
-        # 1. go through each vertex
-        #   --> drop existing edges
-        # 2. start from multiple edges (uniformly)
-        for r, c in zip(*railway):
-            print('-------------------------------')
-            # e.g. [0000, 0000, 0000, 0000]
-            all_control_bits = _all_control_bits(r, c)
-            valid_directions = _valid_directions(all_control_bits)
-            # get vertices
-            vertex_directions = _vertex_directions(all_control_bits, valid_directions) 
-            # add control pairs
-            controls
-            # --> CONTROLS relative to agent but should be global!
-            for d in valid_directions:
-                si = State(r, c, d)
-                states[State(r, c, d)] = 
-                if d in v:
-                    print('Add vertex:\t{}'.format(si))
-                    # add as vertex
-                    pass
-            # 
-            #print([Direction(di) for di in numpy.nonzero(v)[0]])
-            #print([[Control(ci) for ci in numpy.nonzero(l[vi])[0]] for vi in v_idx])
-            
-            print('R{:3}-C{:3}:{:08} #{:04b} #{:04b} #{:04b} #{:04b}'.format(r,c,
-                                    self.grid[r][c], *l))
-            print('R{:3}-C{:3}:{:8} #{:4b} #{:4b} #{:4b} #{:4b}'.format(r,c,
-                                    0, *v))
-        # print('grid {}'.format(self.grid))
-        # print(numpy.nonzero(self.grid))
-        # print(self.T.transitions)
 
     def _vertex_known(self, state: State):
         return state in self.vertices.keys()

@@ -90,7 +90,10 @@ if __name__ == "__main__":
     print('Start Graph')
     t0 = time.time()
     g = graph.MyGraph(env)
-    g.initialise()
+    #input('wait')
+    #import sys
+    #sys.exit(0)
+    #g.initialise()
     print('Graph creation completed!\n\t--> {}s'.format(time.time()-t0))
     for step in range(500):
         # print('Step {}'.format(step))
@@ -102,7 +105,7 @@ if __name__ == "__main__":
             show_agents=True, 
             show_predictions=False, 
             show_observations=False)
-
+    g. 
     input('press to close')
     #g = MyGraph()
     # select random agent initial position (Use GridTransitionMap)
