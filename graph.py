@@ -48,6 +48,11 @@ class Direction(enum.IntEnum):
     W = 3
     COUNT = 4
 
+Transition2Color = dict()
+Transition2Color[Direction.N] = 'r'
+Transition2Color[Direction.E] = 'r'
+Transition2Color[Direction.S] = 'r'
+Transition2Color[Direction.W] = 'r'
 
 Direction2Target = dict()
 Direction2Target[Direction.N] = [-1, 0]
@@ -225,14 +230,22 @@ class MyGraph(object):
         v = list(self.vertices.keys())[0] 
         controls = self.states[v]
         l = list()
+
         for control in controls:
-            print(control)
+            print('MENOW')
+            #print(control)
             l += [Direction2Target[control[1]]]
-            print(l)
+            #print(l)
+            c = Transition2Color[control[1]]
+            env_renderer.renderer.plot_single_agent((v.r, v.c), v.d, 'r', target=(v.r+1, v.c),selected=True)
+            #env_renderer.renderer.draw_transition([[v.r, v.c],[0,0]],0,0)
+            #env_renderer.renderer.plot_transition((0,0), (1,0))
+            #env_renderer.renderer.plot_transition((0,0), (0,1))
 
             env_renderer.renderer.plot_transition(
                     position_row_col=(v.r, v.c),
-                    transition_row_col=l
+                    transition_row_col=l,
+                    color=c
                     )
         #env_renderer.renderer.plot_transition(
         #        position_row_col=(0,0),
