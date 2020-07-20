@@ -50,35 +50,36 @@ ratios = {1.: 0.25,
 gen_schedule = sparse_schedule_generator(ratios)
 
 env = RailEnv(
-        width=30,
-        height=30,
+        width=50,
+        height=50,
         rail_generator=sparse_rail_generator(
             max_num_cities=2, 
             seed=14,
             grid_mode=False,
-            max_rails_between_cities=2,
-            max_rails_in_city=2,
+            max_rails_between_cities=8,
+            max_rails_in_city=8,
             ),
         schedule_generator=gen_schedule,
         number_of_agents=1,
-        malfunction_generator_and_process_data=malfunction_from_params(
-            params_malfunction),
+        #malfunction_generator_and_process_data=malfunction_from_params(
+        #    params_malfunction),
         obs_builder_object=GlobalObsForRailEnv(),
         remove_agents_at_target=True,
         record_steps=True
         )
 
 env_renderer = RenderTool(env,
+                          gl='PGL',
                           show_debug=True,
                           screen_height=1080,
                           screen_width=1920)
 
 
 if __name__ == "__main__":
-    print('start test program')
+    print('Run testbed.')
     env.reset()
     env_renderer.reset()
-    print('Start Graph')
+    print('Initialise graph.')
     t0 = time.time()
     g = graph.MyGraph(env)
     print('Graph creation completed!\n\t--> {}s'.format(time.time()-t0))
@@ -86,7 +87,7 @@ if __name__ == "__main__":
         env.step(dict((a,0) for a in range(env.get_num_agents())))
 
     env_renderer.render_env(
-            show=True, 
+            show=False, 
             show_agents=True, 
             show_predictions=False, 
             show_observations=False)

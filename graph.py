@@ -12,6 +12,8 @@ from typing import Optional
 
 # Defines a state with its row column and direction
 State = collections.namedtuple('State', ['r', 'c', 'd'])
+# Defines a state with its row column and direction
+ControlDirection = collections.namedtuple('ControlDirection', ['control', 'direction'])
 # Stores Initial and Goal Vertex and corresponding distance in cell count 
 Edge = collections.namedtuple('Edge', ['vertex_1', 'vertex_2', 'attributes'])
 # Stores Goal Vertex and distance in cell count
@@ -56,7 +58,6 @@ Tests = [[Control.L, -1],
          [Control.R, 1]]
 
 
-
 class MyGraph(object):
     """ """
     def __init__(self, env):
@@ -70,7 +71,9 @@ class MyGraph(object):
         self.env = env
         self.grid = env.rail.grid
         railway = numpy.nonzero(self.grid)
-    
+
+        self._show_transitions = False
+
         def _bits(i, value):
             """ Return direction dependent control bits. """
             return (value >> (3 - i) * 4) & 0xF
@@ -98,7 +101,7 @@ class MyGraph(object):
             allowed = numpy.nonzero(ds_idxs)[0]
             da = direction_agent
  
-            controls = [[control, (da + o)%4] for  (control, o) 
+            controls = [ControlDirection(control, (da + o)%4) for  (control, o) 
                          in Tests if ((da + o)%4) in allowed]
 
             if not any(controls):
@@ -126,21 +129,28 @@ class MyGraph(object):
                 states[si] = controls
                 if d in vertex_directions:
                     vertices[si] = None
+        self.report_vertices()
+
+    def report_vertices(self):
+        for vertex in self.vertices.keys():
+            print('\tVertex: \t{}'.format(vertex))
 
     def show_vertices(self, env_renderer):
         v = list(self.vertices.keys())[0] 
         controls = self.states[v]
         l = list()
+        for v in self.vertices.keys():
+            for control in controls:
+                l += [Direction2Target[control.direction]]
+                c = Transition2Color[control.direction]
+                env_renderer.renderer.plot_single_agent((v.r, v.c), v.d, 'r', target=(v.r+1, v.c),selected=True)
 
-        for control in controls:
-            l += [Direction2Target[control[1]]]
-            c = Transition2Color[control[1]]
-            env_renderer.renderer.plot_single_agent((v.r, v.c), v.d, 'r', target=(v.r+1, v.c),selected=True)
-            env_renderer.renderer.plot_transition(
-                    position_row_col=(v.r, v.c),
-                    transition_row_col=l,
-                    color=c
-                    )
+                if self._show_transitions:
+                    env_renderer.renderer.plot_transition(
+                            position_row_col=(v.r, v.c),
+                            transition_row_col=l,
+                            color=c
+                            )
 
 
 if __name__ == "__main__":
