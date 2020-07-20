@@ -107,7 +107,25 @@ class MyGraph(object):
             """ Return indices of vertices at current coordinate. """
             return [idx for idx in valid_idxs if vertex(control_bits[idx])  != 0]
     
-        def _controls(all_control_bits)
+        def _directions2controls(directions, direction_agent):
+            controls = list()
+            da = direction_agent
+            cf = [abs(d - da)%4 for d in directions]
+            for cfi in cf:
+                if cf == 2 or cf 
+                    controls += Control.F
+                elif cf == 1:
+                    controls += Control.L
+                elif cf == -1:
+                    controls += Control.R
+                else:
+                    raise RuntimeError()
+            return controls
+
+        def _controls(all_control_bits, valid_directions):
+            """ """
+            for d in valid_directions:
+
 
         states = self.states
         vertex_list = self.vertices
@@ -126,14 +144,14 @@ class MyGraph(object):
             # get vertices
             vertex_directions = _vertex_directions(all_control_bits, valid_directions) 
             # add control pairs
-            controls
+            controls = _controls(all_control_bits, valid_directios)
             # --> CONTROLS relative to agent but should be global!
-            for d in valid_directions:
+            for d, controls in zip(valid_directions,controls):
                 si = State(r, c, d)
-                states[State(r, c, d)] = 
+                states[si] = controls
                 if d in v:
-                    print('Add vertex:\t{}'.format(si))
-                    # add as vertex
+                    print('Add vertex as unknown:\t{}'.format(si))
+                    vertices[si] = None
                     pass
             # 
             #print([Direction(di) for di in numpy.nonzero(v)[0]])

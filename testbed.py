@@ -105,7 +105,7 @@ if __name__ == "__main__":
             show_agents=True, 
             show_predictions=False, 
             show_observations=False)
-    g. 
+    g.show_vertices() 
     input('press to close')
     #g = MyGraph()
     # select random agent initial position (Use GridTransitionMap)
