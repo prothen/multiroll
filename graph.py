@@ -19,6 +19,13 @@ Edge = collections.namedtuple('Edge', ['vertex_1', 'vertex_2', 'attributes'])
 # Stores Goal Vertex and distance in cell count
 PartialEdge = collections.namedtuple('PartialEdge', ['vertex', 'distance'])
 
+__author__ = "Philipp Rothenhäusler"
+__maintainer__ = "Philipp Rothenhäusler"
+__email__ = "philipp.rothenhaeusler@kthformulastudent.com"
+__copyright__ = "Copyright 2019, KTH Formula Student"
+__status__ = "Development"
+__license__ = "BSD"
+__version__ = "1.0"
 
 class Control(enum.IntEnum):
     NONE = 0
