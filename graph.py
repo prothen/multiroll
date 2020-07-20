@@ -41,6 +41,12 @@ class Direction(enum.IntEnum):
     COUNT = 4
 
 
+Direction2Target = dict()
+Direction2Target[Direction.N] = [-1, 0]
+Direction2Target[Direction.E] = [0, 1]
+Direction2Target[Direction.S] = [1, 0]
+Direction2Target[Direction.W] = [1, -1]
+
 dynamics = dict()
 dynamics[Direction.N] = (lambda state: State(state.r-1, state.c, state.d))
 dynamics[Direction.E] = (lambda state: State(state.r, state.c+1, state.d))
@@ -108,40 +114,34 @@ class MyGraph(object):
             return [idx for idx in valid_idxs if _vertex(all_control_bits[idx])  != 0]
     
         def _directions2controls(directions, direction_agent):
-            controls = list()
+            ds = directions
+            ds_idxs = [int(i) for i in format(directions,'04b')] 
+            allowed = numpy.nonzero(ds_idxs)[0]
             da = direction_agent
-            cf = [abs(d - da)%4 for d in directions if d != 0]
-            print(cf)
-            # TODO: - This logic needs to be analysed more thoroughly
-            for cfi in cf:
-                if cfi == 2 or cfi == 0: 
-                    controls += [Control.F]
-                elif cfi == 1:
-                    controls += [Control.L]
-                elif cfi == -1:
-                    controls += [Control.R]
-                else:
-                    raise RuntimeError()
+
+            tests = [[Control.L, -1], 
+                     [Control.F, 0],
+                     [Control.R, 1]]
+            
+            controls = [[control, (da+ti)] for  (control, ti) 
+                         in tests if ((da+ti)%4) in allowed]
+            if not any(controls):
+                raise RuntimeError()
             return controls
 
         def _controls(all_control_bits, valid_directions):
             """ """
             controls = list()
-            print('#################################')
-            print('Controls')
-            print('--> Control bits: {}'.format(all_control_bits))
-            print('--> Valid directions: {}'.format(valid_directions))
+            #print('#################################')
+            #print('Controls')
+            #print('--> Control bits: {}'.format(all_control_bits))
+            #print('--> Valid directions: {}'.format(valid_directions))
             for d in valid_directions:
-                print('----------------------')
-                print(Direction(d))
-                directions = [int(i) for i in format(all_control_bits[d],
-                                                     '04b')]
-                print('Directions: {}'.format(directions))
-                controls += _directions2controls(directions, d) 
-                # define the 4bits as strings
-                print('Add control: {}'.format(controls))
-            print('all done?')
-            print(controls)
+                #idirections = [int(i) for i in format(all_control_bits[d],'04b')]
+                directions = all_control_bits[d]
+                controls += [_directions2controls(directions, d)] 
+                print('\n',Direction(d),'\t{}'.format(controls))
+            print('Found control.')
             return controls
 
 
@@ -169,7 +169,7 @@ class MyGraph(object):
                 si = State(r, c, d)
                 states[si] = controls
                 if d in vertex_directions:
-                    print('Add vertex as unknown:\t{}'.format(si))
+                    #print('Add vertex as unknown:\t{}'.format(si))
                     vertices[si] = None
                     pass
 
@@ -208,8 +208,54 @@ class MyGraph(object):
         #        s0.direction,
         #        'r', selected=True)
         #env_renderer.renderer.plot_single_agent((0,0), 0, 'r')
-        for v in self.vertices.keys():
-            env_renderer.renderer.plot_single_agent((v.r, v.c), v.d, 'r', selected=True)
+        #for v in self.vertices.keys():
+        v = list(self.vertices.keys())[0] 
+        controls = self.states[v]
+        l = list()
+        print(controls)
+        print(controls[1])
+        for control in controls:
+            print(control)
+            #l += Direction2Target[control[1]]
+
+        #env_renderer.renderer.plot_transition(
+        #        position_row_col=(v.r, v.c),
+        #        transition_row_col=l
+        #       )
+        #env_renderer.renderer.plot_transition(
+        #        position_row_col=(0,0),
+        #        transition_row_col=[[0, 1]]
+        #        )
+#        env_renderer.renderer.plot_single_agent((v.r, v.c), v.d, 'r', target=(v.r+1, v.c),selected=True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def _vertex_known(self, state: State):
         return state in self.vertices.keys()
