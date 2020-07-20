@@ -99,36 +99,55 @@ class MyGraph(object):
             """ Return indices of valid directions."""
             return [idx for idx, val in enumerate(bits) if val != 0]
 
-        def _vertex(all_control_bits):
+        def _vertex(control_bits):
             """ Return true if control_bits are from a vertex. """
             return (bin(control_bits).count("1") > 1)
 
         def _vertex_directions(all_control_bits, valid_idxs):
             """ Return indices of vertices at current coordinate. """
-            return [idx for idx in valid_idxs if vertex(control_bits[idx])  != 0]
+            return [idx for idx in valid_idxs if _vertex(all_control_bits[idx])  != 0]
     
         def _directions2controls(directions, direction_agent):
             controls = list()
             da = direction_agent
-            cf = [abs(d - da)%4 for d in directions]
+            cf = [abs(d - da)%4 for d in directions if d != 0]
+            print(cf)
+            # TODO: - This logic needs to be analysed more thoroughly
             for cfi in cf:
-                if cf == 2 or cf 
-                    controls += Control.F
-                elif cf == 1:
-                    controls += Control.L
-                elif cf == -1:
-                    controls += Control.R
+                if cfi == 2 or cfi == 0: 
+                    controls += [Control.F]
+                elif cfi == 1:
+                    controls += [Control.L]
+                elif cfi == -1:
+                    controls += [Control.R]
                 else:
                     raise RuntimeError()
             return controls
 
         def _controls(all_control_bits, valid_directions):
             """ """
+            controls = list()
+            print('#################################')
+            print('Controls')
+            print('--> Control bits: {}'.format(all_control_bits))
+            print('--> Valid directions: {}'.format(valid_directions))
             for d in valid_directions:
+                print('----------------------')
+                print(Direction(d))
+                directions = [int(i) for i in format(all_control_bits[d],
+                                                     '04b')]
+                print('Directions: {}'.format(directions))
+                controls += _directions2controls(directions, d) 
+                # define the 4bits as strings
+                print('Add control: {}'.format(controls))
+            print('all done?')
+            print(controls)
+            return controls
+
 
 
         states = self.states
-        vertex_list = self.vertices
+        vertices = self.vertices
         # multiprocess (each vertex - for each vertex call explore)
         # process pool
         # compute shortest path for each state
@@ -144,12 +163,12 @@ class MyGraph(object):
             # get vertices
             vertex_directions = _vertex_directions(all_control_bits, valid_directions) 
             # add control pairs
-            controls = _controls(all_control_bits, valid_directios)
+            controls = _controls(all_control_bits, valid_directions)
             # --> CONTROLS relative to agent but should be global!
             for d, controls in zip(valid_directions,controls):
                 si = State(r, c, d)
                 states[si] = controls
-                if d in v:
+                if d in vertex_directions:
                     print('Add vertex as unknown:\t{}'.format(si))
                     vertices[si] = None
                     pass
@@ -157,13 +176,17 @@ class MyGraph(object):
             #print([Direction(di) for di in numpy.nonzero(v)[0]])
             #print([[Control(ci) for ci in numpy.nonzero(l[vi])[0]] for vi in v_idx])
             
-            print('R{:3}-C{:3}:{:08} #{:04b} #{:04b} #{:04b} #{:04b}'.format(r,c,
-                                    self.grid[r][c], *l))
-            print('R{:3}-C{:3}:{:8} #{:4b} #{:4b} #{:4b} #{:4b}'.format(r,c,
-                                    0, *v))
-        # print('grid {}'.format(self.grid))
+            #print('R{:3}-C{:3}:{:08} #{:04b} #{:04b} #{:04b} #{:04b}'.format(r,c,
+            #                        self.grid[r][c], *l))
+            #print('R{:3}-C{:3}:{:8} #{:4b} #{:4b} #{:4b} #{:4b}'.format(r,c,
+            #                        0, *v))
+        # pr#int('grid {}'.format(self.grid))
         # print(numpy.nonzero(self.grid))
         # print(self.T.transitions)
+
+    def show_vertices(self, env_renderer):
+        for v in self.vertices.keys():
+            env_renderer.renderer.plot_single_agent((v.r, v.c), v.d, 'r')
 
     def _vertex_known(self, state: State):
         return state in self.vertices.keys()
