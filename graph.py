@@ -173,11 +173,10 @@ class MyGraph(object):
         print('FIND first vertex')
         valid_backup = state
         for d in range(Direction.n_max):
-            valid_backup = [State(state.r,
-                   state.c,
-                   d) 
-                   if self._is_valid(state)
-                    else valid_backup][0]
+            state = State(state.r, state.c, d)
+            valid_backup = [state
+                            if self._is_valid(state)
+                            else valid_backup][0]
             if not self._is_vertex(state):
                 continue
             return state
