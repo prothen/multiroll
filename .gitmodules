@@ -1,0 +1,3 @@
+[submodule "flatland"]
+	path = flatland
+	url = https://github.com/prothen/flatland.git
