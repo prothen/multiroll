@@ -23,17 +23,10 @@ from flatland.utils.rendertools import RenderTool, AgentRenderVariant
 from flatland.envs.malfunction_generators import malfunction_from_params, MalfunctionParameters
 
 
+import graph
+import observation
 
-class EmptyObservation(ObservationBuilder):
-    def __init__(self):
-        super().__init__()
-        print(self.__dict__)
 
-    def reset(self):
-        pass
-
-    def get(self, handle: int = 0):
-        return np.ones((self.env.num_agents()))
 
 numpy.random.seed(1)
 
