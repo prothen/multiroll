@@ -136,7 +136,8 @@ class MyGraph(object):
                 states[si] = controls
                 if d in vertex_directions:
                     vertices[si] = None
-        self.report_vertices()
+
+        #self.report_vertices()
 
     def report_vertices(self):
         for vertex in self.vertices.keys():
