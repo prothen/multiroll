@@ -74,7 +74,7 @@ if __name__ == "__main__":
     env_renderer.reset()
     print('Initialise graph.')
     t0 = time.time()
-    g = graph.MyGraph(env)
+    g = graph.MyGraph(env, debug=True)
     print('Graph creation completed!\n\t--> {}s'.format(time.time()-t0))
     for step in range(500):
         env.step(dict((a,0) for a in range(env.get_num_agents())))
