@@ -63,6 +63,14 @@ Dynamics[Direction.S] = (lambda state: State(state.r+1, state.c, Direction.S))
 Dynamics[Direction.W] = (lambda state: State(state.r, state.c-1, Direction.W))
 
 
+#
+#Dynamics = dict()
+#Dynamics[Control.NONE] = (lambda state: State(state.r, state.c,
+#                        Dynamics[states[state].direction](state).direction))
+#Dynamics[Control.R] = (lambda state: Dynamics[states[state].direction](state))
+#Dynamics[Control.F] = (lambda state: Dynamics[states[state].direction](state))
+#Dynamics[Control.R] = (lambda state: Dynamics[states[state].direction](state))
+#Dynamics[Control.S] = (lambda state: State(state.r, state.c, state.d))
 
 
 FlipControlDirection = dict()
