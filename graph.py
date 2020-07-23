@@ -172,12 +172,12 @@ class MyGraph(object):
                 #print('Found Vertex {} for {}'.format(state, vertex))
             return edges
         
-        edge_list = list()
-        for vertex in vertices.keys():
-            # Return found vertex and its path length
-            edge_list += find_vertices(vertex)
-        #self.report_vertices()
-        print(edge_list)
+        #edge_list = list()
+        #for vertex in vertices.keys():
+        #    # Return found vertex and its path length
+        #    edge_list += find_vertices(vertex)
+        ##self.report_vertices()
+        #print(edge_list)
 
     def report_vertices(self):
         for vertex in self.vertices.keys():
