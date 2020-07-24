@@ -10,6 +10,7 @@ import matplotlib
 import collections
 from typing import Optional
 
+
 # Defines a state with its row column and direction
 State = collections.namedtuple('State', ['r', 'c', 'd'])
 # Defines a state with its row column and direction
@@ -19,6 +20,8 @@ Edge = collections.namedtuple('Edge', ['vertex_1', 'vertex_2', 'attributes'])
 # Stores Goal Vertex and distance in cell count
 PartialEdge = collections.namedtuple('PartialEdge', ['vertex', 'distance'])
 
+states = dict()
+vertices = dict()
 
 class Direction(enum.IntEnum):
     N = 0
@@ -41,14 +44,14 @@ Tests = [[Control.L, -1],
          [Control.F, 0],
          [Control.R, 1]]
 
-
+# Plot related
 Transition2Color = dict()
 Transition2Color[Direction.N] = 'r'
 Transition2Color[Direction.E] = 'r'
 Transition2Color[Direction.S] = 'r'
 Transition2Color[Direction.W] = 'r'
 
-
+# Plot related
 Direction2Target = dict()
 Direction2Target[Direction.N] = [-1, 0]
 Direction2Target[Direction.E] = [0, 1]
@@ -56,6 +59,22 @@ Direction2Target[Direction.S] = [1, 0]
 Direction2Target[Direction.W] = [1, -1]
 
 
+FlipDirection = dict()
+FlipDirection[Direction.N] = Direction.S
+FlipDirection[Direction.E] = Direction.W
+FlipDirection[Direction.S] = Direction.N
+FlipDirection[Direction.W] = Direction.E
+
+
+# Update a Physics environment transition that leads to non-railway as dead-end simulation
+FlipControlDirection = dict()
+FlipControlDirection[Direction.N] = (lambda control: ControlDirection(Control.NONE, Direction.S))
+FlipControlDirection[Direction.E] = (lambda control: ControlDirection(Control.NONE, Direction.W))
+FlipControlDirection[Direction.S] = (lambda control: ControlDirection(Control.NONE, Direction.N))
+FlipControlDirection[Direction.W] = (lambda control: ControlDirection(Control.NONE, Direction.E))
+
+
+# Dynamics of environment
 Dynamics = dict()
 Dynamics[Direction.N] = (lambda state: State(state.r-1, state.c, Direction.N))
 Dynamics[Direction.E] = (lambda state: State(state.r, state.c+1, Direction.E))
@@ -63,21 +82,16 @@ Dynamics[Direction.S] = (lambda state: State(state.r+1, state.c, Direction.S))
 Dynamics[Direction.W] = (lambda state: State(state.r, state.c-1, Direction.W))
 
 
-#
-#Dynamics = dict()
-#Dynamics[Control.NONE] = (lambda state: State(state.r, state.c,
-#                        Dynamics[states[state].direction](state).direction))
-#Dynamics[Control.R] = (lambda state: Dynamics[states[state].direction](state))
-#Dynamics[Control.F] = (lambda state: Dynamics[states[state].direction](state))
-#Dynamics[Control.R] = (lambda state: Dynamics[states[state].direction](state))
-#Dynamics[Control.S] = (lambda state: State(state.r, state.c, state.d))
+# Control of current state to transition state
+Simulate = dict()
+Simulate[Control.NONE] = (lambda state, control: State(state.r, state.c,
+                            Dynamics[control.direction](state).direction))
+Simulate[Control.L] = (lambda state, control: Dynamics[control.direction](state))
+Simulate[Control.F] = (lambda state, control: Dynamics[control.direction](state))
+Simulate[Control.R] = (lambda state, control: Dynamics[control.direction](state))
+Simulate[Control.S] = (lambda state, control: State(state.r, state.c, state.d))
 
 
-FlipControlDirection = dict()
-FlipControlDirection[Direction.N] = (lambda control: ControlDirection(Control.NONE, Direction.S))
-FlipControlDirection[Direction.E] = (lambda control: ControlDirection(Control.NONE, Direction.W))
-FlipControlDirection[Direction.S] = (lambda control: ControlDirection(Control.NONE, Direction.N))
-FlipControlDirection[Direction.W] = (lambda control: ControlDirection(Control.NONE, Direction.E))
 
 class MyGraph(object):
     """ """
@@ -86,9 +100,10 @@ class MyGraph(object):
         self.graph = networkx.Graph()
 
         self.n_vertices = 0  # Value('i', 0)
-
-        self.vertices = dict()
-        self.states = dict()
+        global vertices
+        global states
+        self.vertices = vertices
+        self.states = states
 
         self.env = env
         self.grid = env.rail.grid
@@ -141,25 +156,26 @@ class MyGraph(object):
                 controls += [_directions2controls(directions, Direction(d))] 
             return controls
 
-        states = self.states
-        vertices = self.vertices
+        #states = self.states
+        #vertices = self.vertices
         for r, c in zip(*railway):
             all_control_bits = _all_control_bits(r, c)
             valid_directions = _valid_directions(all_control_bits)
             vertex_directions = _vertex_directions(all_control_bits, valid_directions) 
-            controls = _controls(all_control_bits, valid_directions)
-            
+            controls = _controls(all_control_bits, valid_directions) 
+
             #print('R{:02d} - C{:02d}: {}'.format(r, c, all_control_bits)) \
             #        if self._verbose else None
             for d, controls in zip(valid_directions,controls):
                 state = State(r, c, d)
-                updated_controls = controls
+                valid_controls = controls
                 for i, control in enumerate(controls):
-                    state_test = Dynamics[control.direction](state)
-                    if not _is_railway(state_test):
+                    state_i = Dynamics[control.direction](state)
+                    if not _is_railway(state_i):
                         print('\t\t->DEADEND')
-                        updated_controls[i] = FlipControlDirection[control.direction](control)
-                states[state] = updated_controls
+                        valid_controls[i] = FlipControlDirection[control.direction](control)
+                states[state] = valid_controls
+                # TODO: time dictionary look up
                 if d in vertex_directions:
                     vertices[state] = None
 
@@ -172,7 +188,8 @@ class MyGraph(object):
                 controls_i = [control]
                 while len(controls_i) < 2:
                     controls_i = controls_i[0]
-                    state = Dynamics[controls_i.direction](state)
+                    print(controls_i)
+                    state = Simulate[controls_i.control](state, controls_i)
                     controls_i = states[state]
                     path += 1
                 edges.append(Edge(vertex, state, path))
