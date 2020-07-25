@@ -4,6 +4,7 @@ import copy
 import enum
 import numpy
 import pandas
+import ctypes
 import networkx
 import itertools
 import matplotlib
@@ -17,11 +18,119 @@ State = collections.namedtuple('State', ['r', 'c', 'd'])
 ControlDirection = collections.namedtuple('ControlDirection', ['control', 'direction'])
 # Stores Initial and Goal Vertex and corresponding distance in cell count 
 Edge = collections.namedtuple('Edge', ['vertex_1', 'vertex_2', 'attributes'])
+EdgeControl = collections.namedtuple('Edge', ['vertex_1', 'vertex_2', 'feed_forward', 'length'])
 # Stores Goal Vertex and distance in cell count
 PartialEdge = collections.namedtuple('PartialEdge', ['vertex', 'distance'])
 
+
+# System states
+is_true = dict()
+is_true.update(graph_complete=False)
+
+
+# All States -> ControlDirection (control and physical direction)
 states = dict()
+# All States that are vertices
 vertices = dict()
+# All edges indexed by integer ID
+edges = dict()
+# An edge indexed queue (updated each iteration) ->  
+queue = None
+
+# Amount of edges (iTODO: set n_edges after parsing all)
+n_edges = None
+# Prediction horizon
+prediction_horizon = 20
+
+# TODO:
+#       - how to dynamically update directionality of edges (usage constraint)
+
+
+class Simulation(object):
+    """ Only to be run if graph is completed. """
+    def __init__(self, edges, N):
+        self.N = N
+        self.edges = edges
+        self.occupancy = dict()
+
+    def initialise(self):
+        for id in range(n_edges):
+            self.occupancy[k] = Queue(k)
+
+    def update(self):
+        # parse all agents
+
+
+class Agent(object):
+    def __init__(self, agent):
+        self.a = agent
+        self.id = agent.handle
+        # Current time evolution
+        self.k = 0
+        # Evolution update interval
+        self.k_progress = self.find_dynamics
+    
+    # Todo: Numba
+    def find_dynamics(self):
+        v = 0
+        k = 0
+        while v < 1:
+            v += self.a.speed
+            k += 1
+        return k
+
+
+# TODO: wrapper around agents for queue in stack
+entities = dict()
+class Entity(object):
+    def __init__(self, v, agent_id):
+        self.v = v
+        self.idx = 0
+        self.id = agent_id
+
+# Queue for each edge
+class Queue(object):
+    def __init__(self, edge_id, N):
+        self.edge_id = edge_id
+        self.N = N
+
+        self.size = edges[edge_id].n_path
+
+        # uint16 supports more than 400 agents
+        self.stack = dict()
+
+    def initialise(self);
+        for k in range(self.N):
+            self.stack[k] = (ctypes.c_uint16*self.size)()
+
+    def enter(self, entity_id):
+        # TODO: if agent enters -> update edge weight each iteration 
+        #       --> with decaying additional weight
+        # add entity 
+        # todo: check if safety distance is guarenteed
+        # last train in queue
+        # SPEED difference:
+        # vl ve -> (max vel both) TODO: decide on logic here
+        # kr = kl / ke > path length -> train e will reach l after edge
+        # --> also step kr (reach) < kl_idx
+        # --> progress of kl is greater than kl
+        # MALFUNCTION:
+        # k_mal (env malfunction upper bound)
+        # --> create penalty for violating 
+        if self.stack[0]:
+            print('collision on entrance!')
+        self.stack[0] = entity_id
+
+    def evolve(self):
+        # pop last one 
+        for entity_id in self.stack_entities:
+            if entities[entity_id].progress():
+                # ec
+                # sc
+                if (ec >> 1) & sc):
+                    sc |= ec
+                    continue
+
 
 class Direction(enum.IntEnum):
     N = 0
@@ -67,11 +176,12 @@ FlipDirection[Direction.W] = Direction.E
 
 
 # Update a Physics environment transition that leads to non-railway as dead-end simulation
-FlipControlDirection = dict()
-FlipControlDirection[Direction.N] = (lambda control: ControlDirection(Control.NONE, Direction.S))
-FlipControlDirection[Direction.E] = (lambda control: ControlDirection(Control.NONE, Direction.W))
-FlipControlDirection[Direction.S] = (lambda control: ControlDirection(Control.NONE, Direction.N))
-FlipControlDirection[Direction.W] = (lambda control: ControlDirection(Control.NONE, Direction.E))
+FlipControlDirection = (lambda control: ControlDirection(Control.NONE, FlipDirection[Direction.S]))
+#FlipControlDirection = dict()
+#FlipControlDirection[Direction.N] = (lambda control: ControlDirection(Control.NONE, Direction.S))
+#FlipControlDirection[Direction.E] = (lambda control: ControlDirection(Control.NONE, Direction.W))
+#FlipControlDirection[Direction.S] = (lambda control: ControlDirection(Control.NONE, Direction.N))
+#FlipControlDirection[Direction.W] = (lambda control: ControlDirection(Control.NONE, Direction.E))
 
 
 # Dynamics of environment
@@ -158,6 +268,9 @@ class MyGraph(object):
 
         #states = self.states
         #vertices = self.vertices
+        # TODO: create arrays with railway dimension for N E S W 
+        #       --> do & for all
+        #       --> 
         for r, c in zip(*railway):
             all_control_bits = _all_control_bits(r, c)
             valid_directions = _valid_directions(all_control_bits)
@@ -173,26 +286,51 @@ class MyGraph(object):
                     state_i = Dynamics[control.direction](state)
                     if not _is_railway(state_i):
                         print('\t\t->DEADEND')
-                        valid_controls[i] = FlipControlDirection[control.direction](control)
+                        valid_controls[i] = FlipControlDirection(control)
                 states[state] = valid_controls
                 # TODO: time dictionary look up
                 if d in vertex_directions:
                     vertices[state] = None
 
         def find_vertices(vertex: State):
+            """ Return the connected vertices, its path and control.
+                
+                Note:
+                    The exploration is based on the deadend compliant state->control
+                    dictionary and creates an edge to itself.
+            """
+            # TODO: update weight for each allocated shortest path vertices
+            #       --> same path
+            #           Ak
+            #           p &= Ak
+            #           --> select edge & related weights
+            #           --> create dict of own vertices ids (path)
+            #           --> update
+            #           define vertices
+            #               -> store same vertices in same weight (ctypes address)
+            #           explore vertices
+            #               -> find vertices in opposite direction on exploration
+            #               -> store pointer to all collision states
+            #           #for k in range(N):
+            #               
             edges = list()
+            path = dict()
             controls = states[vertex]
             for control in controls:
                 state = vertex
-                path = 0
+                n_path = 0
                 controls_i = [control]
+                # avoid lookup of vertices dictionary with reusing controls
+                # TODO: detect railway collisions (multiple use for different edges)
                 while len(controls_i) < 2:
                     controls_i = controls_i[0]
-                    print(controls_i)
+                    path[n_path] = controls_i
                     state = Simulate[controls_i.control](state, controls_i)
                     controls_i = states[state]
-                    path += 1
-                edges.append(Edge(vertex, state, path))
+                    n_path += 1
+                print('Self loop detected') if vertex == state else None
+                print(path)
+                edges.append(Edge(vertex, state, path, n_path))
             return edges
 
         def connect_targets(env):
