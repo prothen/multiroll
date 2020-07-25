@@ -176,7 +176,9 @@ FlipDirection[Direction.W] = Direction.E
 
 
 # Update a Physics environment transition that leads to non-railway as dead-end simulation
-FlipControlDirection = (lambda control: ControlDirection(Control.NONE, FlipDirection[Direction.S]))
+# https://gitlab.aicrowd.com/flatland/flatland/blob/master/flatland/envs/rail_env.py#L85
+# -> agent is moving to cell it came from
+FlipControlDirection = (lambda control: ControlDirection(Control.F, FlipDirection[Direction.S]))
 #FlipControlDirection = dict()
 #FlipControlDirection[Direction.N] = (lambda control: ControlDirection(Control.NONE, Direction.S))
 #FlipControlDirection[Direction.E] = (lambda control: ControlDirection(Control.NONE, Direction.W))
@@ -247,7 +249,7 @@ class MyGraph(object):
         def _directions2controls(directions, direction_agent):
             """ """
             ds = directions
-            ds_idxs = [int(i) for i in format(directions,'04b')] 
+            ds_idxs = [int(i) for i in format(directions,'04b')]
             allowed = numpy.nonzero(ds_idxs)[0]
             da = direction_agent
  
@@ -269,16 +271,15 @@ class MyGraph(object):
         #states = self.states
         #vertices = self.vertices
         # TODO: create arrays with railway dimension for N E S W 
+        #       --> 0x04 --> 0x04 << 1 ...
         #       --> do & for all
         #       --> 
         for r, c in zip(*railway):
             all_control_bits = _all_control_bits(r, c)
             valid_directions = _valid_directions(all_control_bits)
-            vertex_directions = _vertex_directions(all_control_bits, valid_directions) 
-            controls = _controls(all_control_bits, valid_directions) 
+            vertex_directions = _vertex_directions(all_control_bits, valid_directions)
+            controls = _controls(all_control_bits, valid_directions)
 
-            #print('R{:02d} - C{:02d}: {}'.format(r, c, all_control_bits)) \
-            #        if self._verbose else None
             for d, controls in zip(valid_directions,controls):
                 state = State(r, c, d)
                 valid_controls = controls
@@ -288,7 +289,6 @@ class MyGraph(object):
                         print('\t\t->DEADEND')
                         valid_controls[i] = FlipControlDirection(control)
                 states[state] = valid_controls
-                # TODO: time dictionary look up
                 if d in vertex_directions:
                     vertices[state] = None
 
