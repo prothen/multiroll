@@ -11,125 +11,26 @@ import matplotlib
 import collections
 from typing import Optional
 
-
+# Defines a coordinate with row and column
+Coordinate = collections.namedtuple('Coordinate', ['r', 'c'])
 # Defines a state with its row column and direction
 State = collections.namedtuple('State', ['r', 'c', 'd'])
 # Defines a state with its row column and direction
 ControlDirection = collections.namedtuple('ControlDirection', ['control', 'direction'])
-# Stores Initial and Goal Vertex and corresponding distance in cell count 
-Edge = collections.namedtuple('Edge', ['vertex_1', 'vertex_2', 'attributes'])
-EdgeControl = collections.namedtuple('Edge', ['vertex_1', 'vertex_2', 'feed_forward', 'length'])
-# Stores Goal Vertex and distance in cell count
-PartialEdge = collections.namedtuple('PartialEdge', ['vertex', 'distance'])
+# Store a pair of vertices
+Pair = collections.namedtuple('Pair', ['vertex_1', 'vertex_2'])
+# Define an edge
+# Edge = collections.namedtuple('Edge', ['pair', 'attributes'])
+# Define an edge with its corresponding feed_forward control (autopilot until next intersection)
+Edge = collections.namedtuple('Edge', ['pair', 'priority', 'feed_forward', 'length'])
 
-
-# System states
-is_true = dict()
-is_true.update(graph_complete=False)
-
-
-# All States -> ControlDirection (control and physical direction)
-states = dict()
-# All States that are vertices
-vertices = dict()
-# All edges indexed by integer ID
-edges = dict()
-# An edge indexed queue (updated each iteration) ->  
-queue = None
-
-# Amount of edges (iTODO: set n_edges after parsing all)
-n_edges = None
-# Prediction horizon
-prediction_horizon = 20
-
-# TODO:
-#       - how to dynamically update directionality of edges (usage constraint)
-
-
-class Simulation(object):
-    """ Only to be run if graph is completed. """
-    def __init__(self, edges, N):
-        self.N = N
-        self.edges = edges
-        self.occupancy = dict()
-
-    def initialise(self):
-        for id in range(n_edges):
-            self.occupancy[k] = Queue(k)
-
-    def update(self):
-        # parse all agents
-
-
-class Agent(object):
-    def __init__(self, agent):
-        self.a = agent
-        self.id = agent.handle
-        # Current time evolution
-        self.k = 0
-        # Evolution update interval
-        self.k_progress = self.find_dynamics
-    
-    # Todo: Numba
-    def find_dynamics(self):
-        v = 0
-        k = 0
-        while v < 1:
-            v += self.a.speed
-            k += 1
-        return k
-
-
-# TODO: wrapper around agents for queue in stack
-entities = dict()
-class Entity(object):
-    def __init__(self, v, agent_id):
-        self.v = v
-        self.idx = 0
-        self.id = agent_id
-
-# Queue for each edge
-class Queue(object):
-    def __init__(self, edge_id, N):
-        self.edge_id = edge_id
-        self.N = N
-
-        self.size = edges[edge_id].n_path
-
-        # uint16 supports more than 400 agents
-        self.stack = dict()
-
-    def initialise(self);
-        for k in range(self.N):
-            self.stack[k] = (ctypes.c_uint16*self.size)()
-
-    def enter(self, entity_id):
-        # TODO: if agent enters -> update edge weight each iteration 
-        #       --> with decaying additional weight
-        # add entity 
-        # todo: check if safety distance is guarenteed
-        # last train in queue
-        # SPEED difference:
-        # vl ve -> (max vel both) TODO: decide on logic here
-        # kr = kl / ke > path length -> train e will reach l after edge
-        # --> also step kr (reach) < kl_idx
-        # --> progress of kl is greater than kl
-        # MALFUNCTION:
-        # k_mal (env malfunction upper bound)
-        # --> create penalty for violating 
-        if self.stack[0]:
-            print('collision on entrance!')
-        self.stack[0] = entity_id
-
-    def evolve(self):
-        # pop last one 
-        for entity_id in self.stack_entities:
-            if entities[entity_id].progress():
-                # ec
-                # sc
-                if (ec >> 1) & sc):
-                    sc |= ec
-                    continue
+## CONSTANTS
+# Edge goal is intersection
+PRIO_NONE = 0
+# Low amount of traversability 2 choices
+PRIO_LOW = 1
+# High amount of traversability 3 choices
+PRIO_HIGH = 2
 
 
 class Direction(enum.IntEnum):
@@ -153,12 +54,14 @@ Tests = [[Control.L, -1],
          [Control.F, 0],
          [Control.R, 1]]
 
+
 # Plot related
 Transition2Color = dict()
 Transition2Color[Direction.N] = 'r'
 Transition2Color[Direction.E] = 'r'
 Transition2Color[Direction.S] = 'r'
 Transition2Color[Direction.W] = 'r'
+
 
 # Plot related
 Direction2Target = dict()
@@ -178,13 +81,8 @@ FlipDirection[Direction.W] = Direction.E
 # Update a Physics environment transition that leads to non-railway as dead-end simulation
 # https://gitlab.aicrowd.com/flatland/flatland/blob/master/flatland/envs/rail_env.py#L85
 # -> agent is moving to cell it came from
-FlipControlDirection = (lambda control: ControlDirection(Control.F, FlipDirection[Direction.S]))
-#FlipControlDirection = dict()
-#FlipControlDirection[Direction.N] = (lambda control: ControlDirection(Control.NONE, Direction.S))
-#FlipControlDirection[Direction.E] = (lambda control: ControlDirection(Control.NONE, Direction.W))
-#FlipControlDirection[Direction.S] = (lambda control: ControlDirection(Control.NONE, Direction.N))
-#FlipControlDirection[Direction.W] = (lambda control: ControlDirection(Control.NONE, Direction.E))
-
+ApplyDeadendControl = (lambda control:
+        ControlDirection(Control.F, FlipDirection[control.direction]))
 
 # Dynamics of environment
 Dynamics = dict()
@@ -204,165 +102,582 @@ Simulate[Control.R] = (lambda state, control: Dynamics[control.direction](state)
 Simulate[Control.S] = (lambda state, control: State(state.r, state.c, state.d))
 
 
+class GlobalContainer(object):
+    # Define environment
+    env = None
+    # Define grid with uint16 transition bit encoding
+    grid = None
+    # All railway coordinates
+    railway = dict()
+    # Railway coordinates to IDs
+    railway_ids = dict()
+    # All States -> ControlDirection (control and physical direction)
+    states = dict()
+    # All States that are vertices and their StatesContainer
+    vertices = dict()
+    # All states that are intersections and their StatesContainer
+    intersections = dict()
+    # All pairs of vertices (combine similar ones) and their ID as value
+    pairs = dict()
+    # Unique pair ID
+    n_pairs = 0
+    # All EdgeContainers indexed by integer ID (NOTE: agent path defined by integer list)
+    edges = dict()
+    # Unique edge ID
+    n_edges = 0
+    # ID to coordinate dictionary
+    id2dict = dict()
+    # All occupancies for each pair ID over N prediction horizon
+    occupancies = None
+    # Prio dictionary that adds agent ID on each edge entry
 
-class MyGraph(object):
-    """ """
+    @classmethod
+    def set_env(cls, env_arg):
+        cls.env = env_arg
+        cls.grid = cls.env.rail.grid
+
+# legacy
+def set_env(env_arg):
+    GlobalContainer.set_env(env_arg)
+
+
+class Utils(GlobalContainer):
+
+    @staticmethod
+    def _bits(i, value):
+        """ Return direction dependent control bits. """
+        return (value >> (3 - i) * 4) & 0xF
+
+    def _all_control_bits(self, coordinate: Coordinate):
+        """ Return list of control_bits for all directions. """
+        return [self._bits(d, self.grid[coordinate.r][coordinate.c])
+                for d in range(Direction.COUNT)]
+
+    @staticmethod
+    def _valid_directions(bits):
+        """ Return indices of valid directions."""
+        return [idx for idx, val in enumerate(bits) if val != 0]
+
+    @staticmethod
+    def _vertex(control_bits):
+        """ Return true if control_bits are from a vertex. """
+        return (bin(control_bits).count("1") > 1)
+
+    def _vertex_directions(self, all_control_bits, valid_idxs):
+        """ Return indices of vertices at current coordinate. """
+        return [idx for idx in valid_idxs if self._vertex(all_control_bits[idx])  != 0]
+
+    def _n_directions(self, coordinate: Coordinate):
+        """Return the amount of valid directions that have transitions. """
+        return len([vdi for vdi in self._valid_directions(
+                    self._all_control_bits(coordinate)) if vdi != 0])
+
+    @staticmethod
+    def _is_intersection(coordinate: Coordinate):
+        """ Return true if the current coordinate has more than 2 transitions. """
+        return _n_directions(coordinate) > 2
+
+    def _is_railway(self, state: State):
+        """Return true if state has any transitions. """
+        return (self.grid[state.r][state.c] >> (3 - state.d) * 4) & 0xF
+
+    @staticmethod
+    def _directions2controls(directions, direction_agent):
+        """Transform a direction into a corresponding control for rail_env.  """
+        ds = directions
+        ds_idxs = [int(i) for i in format(directions,'04b')]
+        allowed = numpy.nonzero(ds_idxs)[0]
+        da = direction_agent
+
+        controls = [ControlDirection(control, Direction((da + o)%4)) for  (control, o)
+                     in Tests if ((da + o)%4) in allowed]
+
+        if not any(controls):
+            raise RuntimeError()
+        return controls
+
+    def _controls(self, all_control_bits, valid_directions):
+        """Return a list of lists for each valid direction. """
+        controls = list()
+        for d in valid_directions:
+            directions = all_control_bits[d]
+            controls += [self._directions2controls(directions, Direction(d))]
+        return controls
+
+    def _edge_priority(self, state):
+        """ Define the edge priority based on its traversability. """
+        if state in self.intersections.keys();
+            return PRIO_NONE
+        # TODO: is a vertex and store amount of controls in vertices
+        if self.vertices[state].traversability == 2:
+            return PRIO_LOW
+        return PRIO_HIGH
+
+
+class CoordinateContainer(Utils):
+    """ Create a container of information collected in a coordinate.
+
+        Note:
+            Container to collect and extend information about railway 
+            coordinates.
+
+        Todo:
+            Coordinate metrics should be accessible based on States
+            -> e.g. direction based controls
+    """
+    def __init__(self, ID, coordinate):
+        all_control_bits = self._all_control_bits(coordinate)
+        valid_directions = self._valid_directions(all_control_bits)
+        vertex_directions = self._vertex_directions(all_control_bits, valid_directions)
+        controls = self._controls(all_control_bits, valid_directions)
+
+        self.id = ID
+        self.coordinate = coordinate
+
+        self.states = dict()
+        self.controls = dict()
+        self.vertices = dict()
+
+        self.n_directions = 0
+
+        for d, control in zip(valid_directions, controls):
+            self.states[State(coordinate.r, coordinate.c, d)] = control
+            self.controls[d] = control
+            self.n_directions[d] = len(control)
+            if direction in vertex_directions:
+                self.vertices[d] = control
+
+
+class StatesContainer(object):
+    """ Utility class to collect information about state.
+
+        Used in global vertices and intersections.
+
+        Note:
+            Allows easy extension and access of state metrics.
+    """
+    def __init__(self, state):
+        # Corresponding coordinate container
+        self.coc = self.railway[Coordinate(state.r, state.c)]
+        # Get common coordinate ID for collision prediction
+        self.id = self.coc.id
+        self.traversability = self.coc.n_directions[state.d]
+
+
+class AgentContainer(GlobalContainer):
+    """ Get subset of metrics from flatland environment. """
+
+    def __init__(self, ID):
+        self.id = ID
+        a = self.env.agents[self.id]
+        (r, c) = a.initial_position
+        d = a.initial_direction
+        self.state = State(r, c, d)
+        # get goal states
+        # look up coordinate and get valid directions
+        (r, c) = a.target_position
+        self.target = self.railway[Coordinate(r,c)].states.keys()
+        # TODO: compute fraction (steps for one transition)
+        speed = a.speed_data['speed']
+        # Amount of steps necessary for one grid traversal
+        # TODO: DEV-stage: test pending
+        import math; self.speed = math.ceil(1/speed)
+        # List of edge_ids
+        self.path = list()
+        # Step based dictionary
+        self.prediction = dict()
+        self._initialise()
+
+    def initialise_prediction(self):
+        self._find_initial_edge()
+        self._find_shortest_path()
+        self._populate_prediction()
+
+    def _find_initial_edge(self):
+        #
+        pass
+
+    def _populate_prediction(self):
+        """ Define global collision matrix for k iterations.
+            
+            railway_occupancy
+            N_ID x M
+        """
+        edge_idx = 0
+        edge_n = 0
+        edge_id = self.path[edge_n]
+        edge = self.edges[edge_id]
+        for k in range(M):
+            if k % self.speed:
+                continue
+            edge_idx += 1
+            if edge.path_length >= edge_idx:
+                edge_n += 1
+
+            # TODO: check that feed_forward provides StateContainer reference
+            state = edge.feed_forward[edge_idx]
+            self.railway_occupancy[k+STEP][state.id] += 1
+            # self.prediction[k+STEP] = 
+            pass
+
+    def step(self):
+        """ tbd """
+        # apply movement
+        # move idx pointer
+        # run enter or exit edge for priority queue
+
+class AgentTraverse(GlobalContainer):
+    """ Utility class for maintaining overview of useful metrics. """
+
+    def __init__(self, agent_id, edge):
+        self.id = ID
+        self.edge = edge
+        self.speed = self._get_agent_speed()
+        self.eta = self._initialise_eta()
+
+    def _get_agent_speed(self):
+        # TODO: lookup agent, get speed
+        # TODO: initailise speed once while adding ID to global agents
+        # if speed is variable get max and min speed
+        pass
+
+    def _initialise_eta(self)
+        path_length = edge.path_length
+        # get agent_speed
+        # get path length 
+        pass
+
+
+class EdgeContainer(GlobalContainer):
+    """ Edge related metrics and occupancy trackers.
+    
+        Todo:
+            Add collision matrix with agent steps for
+            global N prediction steps along path length M
+            -> matrix &operator should yield zero for collision free
+    """
+    def __init__(self, ID, edge_forward, edge_backward):
+        self.id = ID
+        self.edges = dict()
+        self.edges[edge_forward.pair.vertex_1] = edge_forward
+        self.edges[edge_backward.pair.vertex_1] = edge_backward
+        self.active_agents = dict()
+
+    def enter(self, state, agent_id):
+        """ Conduct entry procedure for agent from state.
+
+            Note:
+                The global priority_dict helps in selecting
+                promising candidates for the rollout.
+        """
+        edge = self.edges[state]
+        agent_container = AgentTraverse(agent_id=agent_id, edge=edge)
+        self.active_agents[agent_id] = agent_container
+
+        # Register agent globally to appropriate priority watchlist
+        #   and reference to agent's traverse metrics
+        self.priority_dict[edge.priority][agent_id] = agent_container
+
+    def exit(self, agent_id):
+        """ Remove agent from active_agents and priority_dict. """
+        prio = self.active_agents[agent_id]
+        self.priority_dict[prio].pop(agent_id, None)
+
+
+class MyGraph(Utils):
+    """Container for graph related actions.
+
+        Note:
+            Update active edges or compute shortest path.
+    """
     def __init__(self, env, debug=False):
+        self.set_env(env)
         self._verbose = debug
-        self.graph = networkx.Graph()
-
-        self.n_vertices = 0  # Value('i', 0)
-        global vertices
-        global states
-        self.vertices = vertices
-        self.states = states
-
-        self.env = env
-        self.grid = env.rail.grid
-        railway = numpy.nonzero(self.grid)
-
         self._show_transitions = False
 
-        def _bits(i, value):
-            """ Return direction dependent control bits. """
-            return (value >> (3 - i) * 4) & 0xF
-       
-        def _all_control_bits(r, c):
-            """ Return list of control_bits for all directions. """
-            return [_bits(d, self.grid[r][c]) for d in range(Direction.COUNT)]
-        
-        def _valid_directions(bits):
-            """ Return indices of valid directions."""
-            return [idx for idx, val in enumerate(bits) if val != 0]
+        self.n_vertices = 0
+        self.graph = networkx.Graph()
+        self.initialise()
 
-        def _vertex(control_bits):
-            """ Return true if control_bits are from a vertex. """
-            return (bin(control_bits).count("1") > 1)
+    def initialise_agents(self):
+        # get agent initial position
+        # get agent min max speeds
+        # get agent_id
+        # add to self.agents[id]
+        pass
 
-        def _vertex_directions(all_control_bits, valid_idxs):
-            """ Return indices of vertices at current coordinate. """
-            return [idx for idx in valid_idxs if _vertex(all_control_bits[idx])  != 0]
-    
-        def _is_railway(state: State):
-            return (self.grid[state.r][state.c] >> (3 - state.d) * 4) & 0xF
+    def find_vertices(self):
+        """ Defines all vertices with unique railway ID.
 
-        def _directions2controls(directions, direction_agent):
-            """ """
-            ds = directions
-            ds_idxs = [int(i) for i in format(directions,'04b')]
-            allowed = numpy.nonzero(ds_idxs)[0]
-            da = direction_agent
- 
-            controls = [ControlDirection(control, Direction((da + o)%4)) for  (control, o) 
-                         in Tests if ((da + o)%4) in allowed]
+            Note
+                self.vertices has railway id
+                self.railway dict has ID as keys and vertices list with coordinate
+                    --> each vertex has edges that need to be activated or deactivated
+                    --> collect pairs
+        """
+        env_railway = numpy.nonzero(self.grid)
+        id_railway = -1
+        # FIND obvious state-based vertices for initial exploration
+        for r, c in zip(*env_railway):
+            id_railway += 1
+            coordinate = Coordinate(r, c)
+            CoordinateContainer(coordinate, id_railway)
+            #all_control_bits = self._all_control_bits(coordinate)
+            #valid_directions = self._valid_directions(all_control_bits)
+            # Define states with more than one transition as vertex
+            ##vertex_directions = self._vertex_directions(all_control_bits, valid_directions)
+            #controls = self._controls(all_control_bits, valid_directions)
 
-            if not any(controls):
-                raise RuntimeError()
-            return controls
-
-        def _controls(all_control_bits, valid_directions):
-            """ """
-            controls = list()
-            for d in valid_directions:
-                directions = all_control_bits[d]
-                controls += [_directions2controls(directions, Direction(d))] 
-            return controls
-
-        #states = self.states
-        #vertices = self.vertices
-        # TODO: create arrays with railway dimension for N E S W 
-        #       --> 0x04 --> 0x04 << 1 ...
-        #       --> do & for all
-        #       --> 
-        for r, c in zip(*railway):
-            all_control_bits = _all_control_bits(r, c)
-            valid_directions = _valid_directions(all_control_bits)
-            vertex_directions = _vertex_directions(all_control_bits, valid_directions)
-            controls = _controls(all_control_bits, valid_directions)
-
-            for d, controls in zip(valid_directions,controls):
-                state = State(r, c, d)
+            # Update CoordinateContainer to avoid recomputation
+            #coc = CoordinateContainer(coordinate, id_railway)
+            #coc.valid_directions = valid_directions
+            #coc.vertex_directions = vertex_directions
+            #coc.controls = controls
+            # Store all state-dependent controls in states dict
+            #   -> controls are for rail_env, directions for simulation
+            for d, controls in zip(valid_directions, controls):
+                state = State(coordinate.r, coordinate.c, Direction(d))
                 valid_controls = controls
+                # Transform all dead-ends into corresponding actions and 
+                # directions
+                # Note:
+                #       actions are for interaction with flatland
+                #       directions are for simulation of environment traversal
                 for i, control in enumerate(controls):
-                    state_i = Dynamics[control.direction](state)
-                    if not _is_railway(state_i):
-                        print('\t\t->DEADEND')
-                        valid_controls[i] = FlipControlDirection(control)
-                states[state] = valid_controls
+                    if not self._is_railway(Dynamics[control.direction](state)):
+                        print('\t\t->Encountered dead-end (Flip!)')
+                        valid_controls[i] = ApplyDeadendControl(control)
+                self.states[state] = valid_controls
                 if d in vertex_directions:
-                    vertices[state] = None
+                    # NOTE: each state has its coordinate id -> LATER ID lookup! for collision
+                    self.vertices[state] = id_railway
+                    # TODO: vertices(state) -> id -> railway -> coc -> edges(state)
+                    # collect all vertices for same state TODO: update intersections
+                    coc.append(state)
+            self.railway[coordinate] = coc
+            #self.railway_ids[coordinate] = id_railway
 
-        def find_vertices(vertex: State):
-            """ Return the connected vertices, its path and control.
-                
-                Note:
-                    The exploration is based on the deadend compliant state->control
-                    dictionary and creates an edge to itself.
-            """
-            # TODO: update weight for each allocated shortest path vertices
-            #       --> same path
-            #           Ak
-            #           p &= Ak
-            #           --> select edge & related weights
-            #           --> create dict of own vertices ids (path)
-            #           --> update
-            #           define vertices
-            #               -> store same vertices in same weight (ctypes address)
-            #           explore vertices
-            #               -> find vertices in opposite direction on exploration
-            #               -> store pointer to all collision states
-            #           #for k in range(N):
-            #               
-            edges = list()
-            path = dict()
-            controls = states[vertex]
-            for control in controls:
-                state = vertex
-                n_path = 0
-                controls_i = [control]
-                # avoid lookup of vertices dictionary with reusing controls
-                # TODO: detect railway collisions (multiple use for different edges)
-                while len(controls_i) < 2:
-                    controls_i = controls_i[0]
-                    path[n_path] = controls_i
-                    state = Simulate[controls_i.control](state, controls_i)
-                    controls_i = states[state]
-                    n_path += 1
-                print('Self loop detected') if vertex == state else None
-                print(path)
-                edges.append(Edge(vertex, state, path, n_path))
-            return edges
+    def _find_feed_forward(self, control, vertex):
+        path = list()
+        state = vertex
+        n_path = 1
+        path.append((controls_i, state))
+        state = Simulate[controls_i.control](state, controls_i)
+        controls_i = self.states[state]
+        # test that the current coordinate is not an intersection and not a vertex
+        while self._n_directions(state) <= 2 and len(controls_i) < 2:
+            n_path += 1
+            controls_i = controls_i[0]
+            state = Simulate[controls_i.control](state, controls_i)
+            path.append((controls_i, state))
+            controls_i = self.states[state]
 
-        def connect_targets(env):
-            for agent in env.agents:
-                print(agent.target_position)
-                # get r, c grid 
-                # get valid transitions
-                # explore each to next vertex
 
+    def _find_edges(self, vertex: State, intersections: dict):
+        """ Return edges for a vertex to the next intersection or vertex.
+
+            Note:
+                The exploration is based on the deadend compliant state->control
+                dictionary and creates an edge to itself.
+        """
+        edges = list()
+        controls = self.states[vertex]
+        for controls_i in controls:
+            # TODO: create EdgeContainer
+            # - > store forward and backward path
+            # - > store if a edge leads to intersection (LOWER PRIO -> ) 
+            # - > TODO: append to prio dictionary
+            # - > classify 
+            edge_forward = find_path_control(controls_i, vertex)
+            # get reversed goal state TODO: add intersection flag
+            edge_backward = find_path_control(controls_i, goal_state)
+            print('Self loop detected') if vertex == state else None
+            if state not in self.vertices.keys():
+                # Create artificial vertex for intersection
+                # TODO: handle vertex collision
+                # TODO: keep track of intersections -> ONLY collision avoidance 
+                # TODO: no decision here
+                # --> create lookup for vertex --> (m,N) --> same coordinate -> same m
+                intersections[state] = None
+
+            # TODO: Shortest path -> Edge -> pair -> pairs -> other edges
+            # Search corresponding direction
+            pair = Pair(vertex, state)
+            # CREATING EDGECONTROL
+            # TODO: define unique edge id
+            edge = Edge(pair, path, n_path)
+            
+            print(vertex)
+            print('to')
+            print(state)
+            print('with')
+            print(path)
+            
+            # find REVERSE
+            path_entry_direction = path[-1][1].d
+            coordinate = Coordinate(state.r, state.c)
+            c = self.railway[coordinate].controls
+            ld = list()
+            for cd in c:
+                for cdi in cd:
+                    if cdi.direction == path_entry_direction:
+                        nd = (State(state.r, state.c, cdi.direction))
+                        ld.append(nd)
+
+            #TODO; define edge from all nd to vertex
+            #       --> 
+            # TODO: add valid_directions, all_control_bits
+            #self.environment[coordinate].valid_directions
+            # get last state before new_vertex 
+            # get all controls 
+            # test all controls / directions and collect all that yield previous state
+
+            # for which states do we get in previous state
+            vertex = state
+            state = vertex
+            n_path = 1
+            state = Simulate[controls_i.control](state, controls_i)
+            controls_i = self.states[state]
+            # test that the current coordinate is not an intersection and not a vertex
+            while self._n_directions(state) <= 2 and len(controls_i) < 2:
+                n_path += 1
+                controls_i = controls_i[0]
+                state = Simulate[controls_i.control](state, controls_i)
+                path.append(controls_i)
+                controls_i = self.states[state]
+            print('Self loop detected') if vertex == state else None
+            if state not in self.vertices.keys():
+                # Create artificial vertex for intersection
+                # TODO: handle vertex collision
+                # --> create lookup for vertex --> (m,N) --> same coordinate -> same m
+                intersections[state] = None
+
+            d = self.pairs.keys()
+            condition_pair = pair in d
+            condition_pair_mirror = pair_mirror in d
+            # link each pair to same container
+            def update_pairs(self):
+                if not condition_pair:
+                    if not condition_pair_mirror:
+                        coordinate = Coordinate(state.r, state.c)
+                        self.railay[coordinate].append_pair_id(self.n_pairs)
+                        # create new pair ID
+                        pair_container = PairContainer(ID=self.n_pairs,
+                                                       pair=pair)
+                        self.pairs[pair] = pair_container
+                        self.pairs[pair].edges[edge_id] = edge
+                        # ADD via external logic self.pairs[pair_mirror].append_edge(edge)
+                        self.n_pairs += 1
+                        print('Previously unencountered pair detected and added')
+                        return
+                    print('Pair: {} (linked to mirror)'.format(pair))
+                    self.pairs[pair] = PairContainerMirror(self.pairs[pair_mirror])
+                self.pairs[pair].append_edge(edge)
+                print('Pair: {} (appended)'.format(pair))
+            update_pairs(self)
+            edges.append(edge)
+        return edges
+
+    def find_edges(self):
+        intersections = dict()
         edge_list = list()
-        for vertex in vertices.keys():
+        START = True
+        explore = dict(self.vertices)
+        idx = 0
+        # Explore all known vertices for intersections
+        # -> then explore all intersections until no more intersections are detected
+        while len(intersections) > 0 or START:
+            START = False
+            idx += 1
+            intersections = dict()
+            for vertex in explore.keys():
+                edges = self._find_edges(vertex, intersections)
+                self.vertices[vertex] = edges
+                edge_list += edges
+            self.vertices.update(intersections)
+            # Add new intersections (fake-vertices) for exploration
+            explore = dict(intersections)
+            print('{} : found new'.format(idx))
+
+
+    def initialise(self):
+        self.find_vertices()
+        self.find_edges()
+        # collect collision elements
+        # self.sort_edges()
+        # connect agent targets
+        # initialise agents
+        # compute shortest path for agents
+
+        print(list(railway.values())[-1])
+        eoau
+        # print amount of railway coordinates
+        # --> use as occupancy indicator
+        # --> from coordinate ID derive occupancy matrix
+        # --> save coordinate ID for each vertex
+
+        # get all vertices and find intersections
+        # define all transitions
+        print(env)
+        for agent in env.agents:
             pass
-            # Return found vertex and its path length
-            edge_list += find_vertices(vertex)
-        self.report_vertices()
+            # state from agent
+            # get goal coordinate
+            # get valid directions of target)
+            # find next vertices/intersections
+            # create edges add to edges_list
+            # find vertices (explore
+
+        # for each agent find next vertex
+        for agent in env.agents:
+            pass
+            # get initial position
+            # get initial direction
+            # create STATE
+            # if a STATE is a vertex
+            # optimise
+
+        #for intersection in intersections.keys():
+        # #   edges = find_vertices(intersection, more_intersections)
+        #    pairs[intersection] = edges
+        #    # print(edges)
+        #    edge_list += edges
+
+        #print('found even more intersections: {}'.format(more_intersections))
+        # Find all pairs
+        #for vertex, edges in pairs.items():
+        #    for edge in edges:
+        ##        v2 = edge.vertex_2
+        # #       if v2 in vertices.keys():
+        #            print('valid edge')
+                #vertices[v2]
+                #for edge in edges:
+                #    if edge.vertex_2 == vertex:
+                #        print('found fitting')
+            
+
+        # TODO: find shortest path for each agent and upvote edge direction with +1, if completed edge then remove own vote with -1
+        #       -> update active paths consecutively and re-compute whenever the railway changed
+        print('create graph now')
 
 
     def report_vertices(self):
-        for vertex in self.vertices.keys():
+        for vertex in vertices.keys():
             pass
             #print('\tVertex: \t{}'.format(vertex))
             #print('\tControl: \t{}'.format(self.states[vertex]))
 
     def show_vertices(self, env_renderer):
-        v = list(self.vertices.keys())[0] 
+        #env_renderer.renderer.plot_single_agent((16,22), 1, 'r', target=(0,0),selected=True)
+        #return
+        v = list(vertices.keys())[0]
         controls = self.states[v]
         l = list()
-        for v in self.vertices.keys():
+        for v in vertices.keys():
             for control in controls:
                 l += [Direction2Target[control.direction]]
                 c = Transition2Color[control.direction]
-                env_renderer.renderer.plot_single_agent((v.r, v.c), v.d, 'r', target=(v.r+1, v.c),selected=True)
+                env_renderer.renderer.plot_single_agent((v.r, v.c), v.d, 'r',selected=True)
 
                 if self._show_transitions:
                     env_renderer.renderer.plot_transition(
