@@ -29,6 +29,8 @@ Coordinate = collections.namedtuple('Coordinate', ['r', 'c'])
 State = collections.namedtuple('State', ['r', 'c', 'd'])
 # Defines a state with its row column and direction
 ControlDirection = collections.namedtuple('ControlDirection', ['control', 'direction'])
+# Defines a state control tuple to track of exploration
+StateControl = collections.namedtuple('State', ['state', 'control_direction')
 # Store a pair of vertices
 Pair = collections.namedtuple('Pair', ['vertex_1', 'vertex_2'])
 # Define an edge with its corresponding feed_forward control (autopilot until next intersection)
@@ -132,8 +134,10 @@ class GlobalContainer(object):
     intersections = dict()
     # All pairs of vertices (combine similar ones) and their ID as value
     pairs = dict()
-    # All EdgeContainers indexed by integer ID (NOTE: agent path defined by integer list)
+    # All EdgeContainers indexed by a unique ID, partitioned in edges that share railway cells
     edges = dict()
+    # A collection of all unique edges indexed by their StateControl and linked to the EdgeContainer
+    edge_collection = dict()
     # Priority dictionary
     priority_dict = dict([(p, dict()) for p in Priority])
 
@@ -221,15 +225,6 @@ class Utils(GlobalContainer):
             controls += [self._directions2controls(directions, Direction(d))]
         return controls
 
-    def _edge_priority(self, state):
-        """ Define the edge priority based on its traversability. """
-        if state in self.intersections.keys():
-            return Priority.NONE
-        # TODO: is a vertex and store amount of controls in vertices
-        if self.vertices[state].traversability == 2:
-            return Priority.LOW
-        return Priority.HIGH
-
 
 class CoordinateContainer(Utils):
     """ Create a container of information collected in a coordinate.
@@ -297,7 +292,7 @@ class StatesContainer(object):
         # Get common coordinate ID for collision prediction
         self.id = self.coc.id
         self.traversability = self.coc.n_directions[state.d]
-        # TODO: debug me
+        self.priority = Priority(self.traversability - 1)
         self.controls = self.coc.controls[state.d]
 
 
@@ -476,14 +471,6 @@ class MyGraph(Utils):
         self.graph = networkx.Graph()
         self.initialise()
 
-    def initialise_agents(self):
-        """ To be done. """
-        # get agent initial position
-        # get agent min max speeds
-        # get agent_id
-        # add to self.agents[id]
-        pass
-
     def find_vertices(self):
         """ Defines all vertices with unique railway ID.
 
@@ -501,11 +488,11 @@ class MyGraph(Utils):
             coordinate = Coordinate(r, c)
             CoordinateContainer(id_railway, coordinate)
 
-    def _find_entry_vertices(self, vertex, control):
+    def _find_edge_entry_states(self, vertex, control):
         """ Find all possible states that lead to the same edge. """
 
         edge_entries = dict()
-        edge_entries[vertex] = control
+        entry_vertices[vertex] = control
 
         direction = Simulator(vertex, control).d
 
@@ -513,21 +500,30 @@ class MyGraph(Utils):
         state_containers = coordinate_container.valid_states.values()
 
         for state_container in state_containers:
+            state = state_container.state
             controls = state_container.controls
-            for control_i in controls:
-                if control_i.direction == direction:
-                    edge_entries[state_container.state] = control_i
+            for control in controls:
+                if control.direction == direction:
+                    entry_vertices[state] = control
+
+                # Detect possible intersections on this occassion
+                if state not in self.vertices.keys():
+                    print('Found entry to edge via intersection')
+                    if state not in self.intersections.keys():
+                        print('Added entry to intersections dict!')
+                        self.intersections[state] = self.states[state]
         return edge_entries
 
-    def _find_edge_control(self, controls, vertex):
-        """ Return state controls pairs for each grid element along edge. """
+    def _find_edge_control(self, vertex, control):
+        """ Return state controls pairs for each grid element along edge.
 
-        print('find edge controls')
-        print('{}'.format(controls))
+            Note:
+                Returns list of (state,control) from vertex+1 cell until goal.
+
+        """
         path_controls = list()
         state = vertex
         n_path = 1
-        path.append((state, controls))
         state = Simulate[controls.control](state, controls)
         controls = self.states[state]
 
@@ -544,9 +540,42 @@ class MyGraph(Utils):
             # Create artificial vertex for intersection
             self.intersections[state] = self.states[state]
         priority = self._edge_priority(goal_state)
-        # define priority
-        edge = Edge(pair, priority, path, n_path)
+        for state, control in edge_entry_states.items():
+            state_control = StateControl(state, control)
+            self.edge_collection[state_control] = edge_container_id 
+            # define edge pairs priority
+            pair = Pair(state, goal_state)
+            self.edges = Edge(pair, priority, path, n_path)
+        # get edge_container
+        # add all edges 
 
+    def _find_reverse_goal_state(self, edge_container):
+        ec = edge_container
+
+        # get edge
+        # get path
+        # get last element
+        # extract direction
+        # go through goal_coordinaten
+        # -> create goal_coordinate
+        # -> coc
+        # -> go through all controls.items() 
+        # -> save all states that provide direction to path element
+        # -> update intersections if not added already
+        # -> add StateControl hash to edges 
+        pass
+
+    def _define_edge_from_path(self, entry_states, path):
+        # 
+        goal_state = path[0][0])
+        for entry_state, control in entry_states.items():
+            state_control = StateControl(entry_state, control)
+            pair = Pair(entry_state, goal_state)
+            edge_id = len(self.edge_collection) + 1
+            edge = Edge(pair, path, n_path)
+        # define pair
+        
+        pass
 
     def _find_edges(self, vertex: State, intersections: dict):
         """ Return edges for a vertex to the next intersection or vertex.
@@ -559,26 +588,38 @@ class MyGraph(Utils):
         sc = self.vertices[vertex]
         controls = sc.controls
         print('found state controls: {}'.format(controls))
-        for controls_i in controls:
+        for control in controls:
+            # Skip already explored edges using the edge_collection
+            if StateControl(sc.state, control) in self.edge_collection.keys():
+                continue
+            edge_container_id = len(self.edges) + 1
+            edge_container = EdgeContainer(edge_container_id)
             print('use control{}'.format(controls_i))
-            # TODO: create EdgeContainer
-            # - > store forward and backward path
-            # - > store if a edge leads to intersection (LOWER PRIO -> ) 
-            # - > TODO: append to prio dictionary
-            # - > classify 
-            edge_forward = self._find_edge_control(controls_i, vertex)
-            # get reversed goal state TODO: add intersection flag
+
+            # GET FORWARD EDGES
+            # get all entry states to the same railway section
+            edge_entry_states = self._find_edge_entry_states(vertex, control)
+            path = self._find_edge_control(vertex, control)
+            edges = self._define_edge_from_path(edge_entry_states)
+            for edge in edges:
+                edge_container.add_forward_edge(edge)
+
+            # GET BACKWARD EDGES
+            goal_state_reversed = self._find_reverse_state(edge_forward)
+            edge_entry_states = self._find_edge_entry_states(goal_state_reversed, control)
             edge_backward = self._find_edge_control(controls_i, goal_state)
-            print('Self loop detected') if vertex == state else None
+            path = self._find_edge_control(goal_state_reversed, control_reversed)
+            for edge in edges:
+                edge_container.add_forward_edge(edge)
 
             # TODO: Shortest path -> Edge -> pair -> pairs -> other edges
             # Search corresponding direction
-            pair = Pair(vertex, state)
             # CREATING EDGECONTROL
             # TODO: define unique edge id
-            edge = Edge(pair, path, n_path)
 
+            # LEGACY:
             # find REVERSE
+            # TODO: this is not the last path element but the goal_state direction!
             path_entry_direction = path[-1][1].d
             coordinate = Coordinate(state.r, state.c)
             c = self.railway[coordinate].controls
@@ -750,6 +791,14 @@ class MyGraph(Utils):
                             transition_row_col=l,
                             color=c
                             )
+
+    def initialise_agents(self):
+        """ To be done. """
+        # get agent initial position
+        # get agent min max speeds
+        # get agent_id
+        # add to self.agents[id]
+        pass
 
 
 if __name__ == "__main__":
