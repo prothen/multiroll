@@ -406,7 +406,7 @@ class EdgeContainer(GlobalContainer):
         self._edge_dir = dict()
         self.active_agents = dict()
 
-    def _reset_vote(self);
+    def _reset_vote(self):
         """ Reset vote and allow all edge directions to be used. """
         self.vote = 0
 
@@ -424,7 +424,7 @@ class EdgeContainer(GlobalContainer):
         self._forward[edge.pair.vertex_1] = edge
         self._edge_direction[edge.pair.vertex_1] = EdgeContainer.FORWARD
 
-    def add_reverse_edge(self, edge)
+    def add_reverse_edge(self, edge):
         self._backward[edge.pair.vertex_1] = edge
         self._edge_direction[edge_backward.pair.vertex_1] = EdgeContainer.BACKWARD
 
