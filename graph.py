@@ -269,7 +269,6 @@ class CoordinateContainer(Utils):
             state = State(coordinate.r, coordinate.c, Direction(d))
             valid_controls = controls
             for i, control in enumerate(controls):
-                #if not self._is_railway(Dynamics[control.direction](state)):
                 if not self._is_railway(Simulator(state, control)):
                     print('\t\t->Encountered dead-end (Flip!)')
                     valid_controls[i] = ApplyDeadendControl(control)
@@ -387,16 +386,57 @@ class EdgeContainer(GlobalContainer):
     """ Edge related metrics and occupancy trackers.
 
         Todo:
-            Add collision matrix with agent steps for
-            global N prediction steps along path length M
-            -> matrix &operator should yield zero for collision free
+            1.
+                Register agents and their planned entry step
+                -> If agent registers and no vote done -> force switch
+
+            2.
+                Add collision matrix with agent steps for
+                global N prediction steps along path length M
+                -> matrix &operator should yield zero for collision free
     """
-    def __init__(self, ID, edge_forward, edge_backward):
+    FORWARD = 1
+    BACKWARD = -1
+
+    def __init__(self, ID):
         self.id = ID
-        self.edges = dict()
-        self.edges[edge_forward.pair.vertex_1] = edge_forward
-        self.edges[edge_backward.pair.vertex_1] = edge_backward
+        self.vote = 0
+        self._forward = dict()
+        self._backward = dict()
+        self._edge_dir = dict()
         self.active_agents = dict()
+
+    def _reset_vote(self);
+        """ Reset vote and allow all edge directions to be used. """
+        self.vote = 0
+
+    def _is_forward(self):
+        return self.vote > 0
+
+    def get_edges(self, voted=True):
+        if voted:
+            if self._is_forward:
+                return self._forward.values()
+            return self._backward.values()
+        return dict(**self._forward, **self._backward).values()
+
+    def add_forward_edge(self, edge):
+        self._forward[edge.pair.vertex_1] = edge
+        self._edge_direction[edge.pair.vertex_1] = EdgeContainer.FORWARD
+
+    def add_reverse_edge(self, edge)
+        self._backward[edge.pair.vertex_1] = edge
+        self._edge_direction[edge_backward.pair.vertex_1] = EdgeContainer.BACKWARD
+
+    def vote(self, state):
+        """ Register interest to use an edge in certain direction. """
+        self.vote += self._edge_direction[state]
+
+    def register(self, agent_id, step):
+        """ Register when an agent is expected to enter this edge.  """
+        # TODO: if not voted, force switch
+        self.vote += self._edge_direction[state]
+        pass
 
     def enter(self, state, agent_id):
         """ Conduct entry procedure for agent from state.
