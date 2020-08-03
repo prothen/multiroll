@@ -563,19 +563,23 @@ class MyGraph(Utils):
         # -> save all states that provide direction to path element
         # -> update intersections if not added already
         # -> add StateControl hash to edges 
-        pass
+        return goal_state, goal_control
 
-    def _define_edge_from_path(self, entry_states, path):
-        # 
+    def _define_edge_from_path(self, entry_states, path, edge_container_id):
+        edges = list() 
         goal_state = path[0][0])
+        priority = self.states[goal_state].priority
         for entry_state, control in entry_states.items():
             state_control = StateControl(entry_state, control)
-            pair = Pair(entry_state, goal_state)
+            self.edge_collection[state_control] = edge_container_id
             edge_id = len(self.edge_collection) + 1
-            edge = Edge(pair, path, n_path)
-        # define pair
-        
-        pass
+
+            pair = Pair(entry_state, goal_state)
+            edges += Edge(pair, priority path, n_path)
+        return edges
+
+    def _is_explored(self, state, control):
+        return StateControl(state, control) in self.edge_collection.keys():
 
     def _find_edges(self, vertex: State, intersections: dict):
         """ Return edges for a vertex to the next intersection or vertex.
@@ -585,30 +589,35 @@ class MyGraph(Utils):
                 dictionary and creates an edge to itself.
         """
         edges = list()
-        sc = self.vertices[vertex]
-        controls = sc.controls
+        state_container = self.vertices[vertex]
+        controls = state_container.controls
         print('found state controls: {}'.format(controls))
         for control in controls:
             # Skip already explored edges using the edge_collection
-            if StateControl(sc.state, control) in self.edge_collection.keys():
+            if self._is_explored(state_container.state, control):
                 continue
             edge_container_id = len(self.edges) + 1
             edge_container = EdgeContainer(edge_container_id)
-            print('use control{}'.format(controls_i))
 
             # GET FORWARD EDGES
-            # get all entry states to the same railway section
             edge_entry_states = self._find_edge_entry_states(vertex, control)
             path = self._find_edge_control(vertex, control)
-            edges = self._define_edge_from_path(edge_entry_states)
+            edges = self._define_edge_from_path(edge_entry_states,
+                                                path,
+                                                edge_container_id)
             for edge in edges:
                 edge_container.add_forward_edge(edge)
 
             # GET BACKWARD EDGES
-            goal_state_reversed = self._find_reverse_state(edge_forward)
-            edge_entry_states = self._find_edge_entry_states(goal_state_reversed, control)
-            edge_backward = self._find_edge_control(controls_i, goal_state)
-            path = self._find_edge_control(goal_state_reversed, control_reversed)
+            goal_state, goal_control = self._find_reversed_goal(edge_forward)
+            edge_entry_states = self._find_edge_entry_states(goal_state,
+                                                             goal_control)
+            path = self._find_edge_control(goal_state, goal_control)
+            edges = self._define_edge_from_path(edge_entry_states,
+                                                path,
+                                                edge_container_id)
+            for edge in edges:
+                edge_container.add_forward_edge(edge)
             for edge in edges:
                 edge_container.add_forward_edge(edge)
 
