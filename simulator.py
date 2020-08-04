@@ -1,5 +1,24 @@
 #!/bin/env python
 
+import graph
+
+
+class SimAgentContainer(graph.AgentContainer):
+    """ 
+        Note:
+            agent_container:
+                - add path as state to control dictionary
+                - simulator -> state to control heuristic
+    """
+    def __init__(self, agent_container):
+        self.agent = agent_container
+
+        # Initialise default heuristic
+        self.heuristic = self.agent.heuristic.copy()
+    def update_heuristic(self):
+        self.agent.heuristic = self.heuristic
+
+
 class Simulator:
     """
         # SIMULATOR
@@ -19,6 +38,8 @@ class Simulator:
         self.agents = None
         # Graph reference -> provides shortest path heuristic
         self.graph = None
+        # Initialise graph
+        self.graph.initialise()
         pass
 
     # SIMULATOR method
@@ -48,6 +69,7 @@ class Simulator:
                     update heuristic for rollout agent
                     store heuristics temporary (edge_id list)
         """
+        # RESET simulation
         # reset all agents
         ## agent_container.reset_sim()
 
