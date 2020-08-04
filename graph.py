@@ -6,7 +6,10 @@
     Note:
         This module expects to be initialised with
 
+            import graph
             graph.set_env(env)
+            ...
+            graph.MyGraph()
 
         before usage of any subsequently defined classes.
 """
@@ -30,7 +33,7 @@ State = collections.namedtuple('State', ['r', 'c', 'd'])
 # Defines a state with its row column and direction
 ControlDirection = collections.namedtuple('ControlDirection', ['control', 'direction'])
 # Defines a state control tuple to track of exploration
-StateControl = collections.namedtuple('State', ['state', 'control_direction')
+StateControl = collections.namedtuple('State', ['state', 'control_direction'])
 # Store a pair of vertices
 Pair = collections.namedtuple('Pair', ['vertex_1', 'vertex_2'])
 # Define an edge with its corresponding feed_forward control (autopilot until next intersection)
@@ -255,10 +258,18 @@ class CoordinateContainer(Utils):
         self.id = ID
         self.coordinate = coordinate
 
+        # coordinate instance for all intersections and vertices
+        # State -> StateContainer
+        self.nodes = dict()
         self.valid_states = dict()
         self.controls = dict()
         self.n_directions = dict()
 
+        # TODO:
+        # get each direction traversibility
+        # get
+
+        # coordinate is 
         for d, controls in zip(valid_directions, controls):
             self.n_directions[Direction(d)] = len(controls)
             state = State(coordinate.r, coordinate.c, Direction(d))
@@ -273,6 +284,8 @@ class CoordinateContainer(Utils):
             if Direction(d) in vertex_directions:
                 self.vertices[state] = sc
             self.valid_states[state] = sc
+        self.nodes.update(**self.vertices)
+        self.nodes.update(**self.vertices)
         self.railway[coordinate] = self
 
 
@@ -284,8 +297,12 @@ class StatesContainer(object):
         Note:
             Allows easy extension and access of state metrics.
     """
+    VERTEX = 1
+    INTERSECTION = 0
     def __init__(self, state, coordinate_container):
         self.state = state
+        # TODO: To be done
+        self.type = None
 
         # Corresponding coordinate container
         self.coc = coordinate_container
@@ -482,7 +499,6 @@ class MyGraph(Utils):
         """
         env_railway = numpy.nonzero(self.grid)
         id_railway = -1
-        # FIND obvious state-based vertices for initial exploration
         for r, c in zip(*env_railway):
             id_railway += 1
             coordinate = Coordinate(r, c)
@@ -491,8 +507,8 @@ class MyGraph(Utils):
     def _find_edge_entry_states(self, vertex, control):
         """ Find all possible states that lead to the same edge. """
 
-        edge_entries = dict()
-        entry_vertices[vertex] = control
+        edge_entry_states = dict()
+        edge_entry_states[vertex] = control
 
         direction = Simulator(vertex, control).d
 
@@ -506,7 +522,7 @@ class MyGraph(Utils):
                 if control.direction == direction:
                     entry_vertices[state] = control
 
-                # Detect possible intersections on this occassion
+                # Detect possible intersections on this occasion
                 if state not in self.vertices.keys():
                     print('Found entry to edge via intersection')
                     if state not in self.intersections.keys():
@@ -566,8 +582,8 @@ class MyGraph(Utils):
         return goal_state, goal_control
 
     def _define_edge_from_path(self, entry_states, path, edge_container_id):
-        edges = list() 
-        goal_state = path[0][0])
+        edges = list()
+        goal_state = path[0][0]
         priority = self.states[goal_state].priority
         for entry_state, control in entry_states.items():
             state_control = StateControl(entry_state, control)
@@ -575,11 +591,11 @@ class MyGraph(Utils):
             edge_id = len(self.edge_collection) + 1
 
             pair = Pair(entry_state, goal_state)
-            edges += Edge(pair, priority path, n_path)
+            edges += Edge(pair, priority, path, n_path)
         return edges
 
     def _is_explored(self, state, control):
-        return StateControl(state, control) in self.edge_collection.keys():
+        return StateControl(state, control) in self.edge_collection.keys()
 
     def _find_edges(self, vertex: State, intersections: dict):
         """ Return edges for a vertex to the next intersection or vertex.
