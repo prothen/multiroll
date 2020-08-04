@@ -22,7 +22,7 @@ class Rollout:
                 - provide method to return cost given agent_states
 
     """
-    def __init__(self):
+    def __init__(self, env):
         # Dictionary of agents with key: agent_id and value: agent_container
         self.agents = None
         # Integer for prediction horizon
@@ -31,6 +31,9 @@ class Rollout:
         self.priority_dict = None
         # simulator
         self.simulator = None
+        # Controls indexed by agent_id and action
+        self.controls = dict()
+
 
     def _rollout(self, agent_id):
         """ Run the rollout for one agent.
@@ -41,23 +44,39 @@ class Rollout:
 
                 agent_container:
                     - find controls other than heuristic
+                    - store heuristic dict (states -> control)
+                    - heuristic from all edges -> state to control pair
 
                 simulator:
                     simulate_steps
                     simulate_heuristic_steps
 
         """
-        ## get controls
-        # steps = self.rediction_horizon
-        ## first cost for heuristic simulation
-        ## cost = self.simulator.simulate_heuristic_steps(steps)
-        # for each control in controls
-        #   agent_control = dict()
-        #   agent_control[agent_id] = control
-        #   total_cost = self.simulator.simulate_steps(agent_control,
-        #                                              steps)
+        d_M = self.prediction_horizon
+        agent = self.agents[agent_id].state
+        state = agent.state
+        controls = self.states[state].controls
 
-        pass
+        # Costs indexed by corresponding control
+        costs = dict()
+        # Heuristics indexed by controls
+        heuristics = dict()
+        control_heuristic = agent.heuristic[state]
+        cost = self.simulator.simulate_steps(d_M)
+        costs[control_heuristic] = cost
+
+        # Remove heuristic
+        controls.pop(controls.index(control_heuristic))
+        for control in controls:
+            # TODO: what happens if control not possible and agent_id stays at same place
+            # simulator.update_heuristic(agent_id)
+            cost = simulator.simulate_steps(d_M)
+
+        min_control = min(costs, key=costs.get)
+        if min_control != heuristic:
+            heuristic = heuristics[min_control]
+            agent.update_heuristic(heuristic)
+            self.controls[agent.id] = min_control.control
 
     def rollout(self):
         """ Execute rollout simulation for each agent. 
@@ -66,8 +85,11 @@ class Rollout:
                 Returns the controls dictionary for all agents 
                 at current stage.
         """
-        # for each agent
-        #   self._rollout
-        pass
+        for agent in self.agents:
+            if self.states[agent.states].priority != Priority.None:
+                self._rollout(agent)
+            else:
+                self.controls[agent.id] = min_control.control
+        return self.controls
 
 
