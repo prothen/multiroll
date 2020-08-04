@@ -45,7 +45,8 @@ class Rollout:
         # for each control in controls
         #   agent_control = dict()
         #   agent_control[agent_id] = control
-        #   total_cost = self.simulator.simulate_steps(agent_control, steps)
+        #   total_cost = self.simulator.simulate_steps(agent_control,
+        #                                              steps)
 
         pass
 
