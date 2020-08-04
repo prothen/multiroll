@@ -39,9 +39,18 @@ class Rollout:
                 Selects the best control based on cost
                 returned from simulator.
 
+                agent_container:
+                    - find controls other than heuristic
+
+                simulator:
+                    simulate_steps
+                    simulate_heuristic_steps
+
         """
         ## get controls
         # steps = self.rediction_horizon
+        ## first cost for heuristic simulation
+        ## cost = self.simulator.simulate_heuristic_steps(steps)
         # for each control in controls
         #   agent_control = dict()
         #   agent_control[agent_id] = control
