@@ -33,13 +33,13 @@ class Simulator:
             agent_container -> attribute heuristic: dict[cell_id_of_path] = control
             agent_container -> attribute sim_heuristic
     """
-    def __init__(self):
+    def __init__(self, env):
         # Agents dictionary with agent_id -> agent_container (global)
         self.agents = None
         # Graph reference -> provides shortest path heuristic
-        self.graph = None
-        # Initialise graph
-        self.graph.initialise()
+        graph.set_env(env)
+        self.graph = graph.MyGraph() #TODO: initialise in constructor
+        self.rail_env_mirror = FlatlandMirror(env) #TODO: copy all environment elements
         pass
 
     # SIMULATOR method
