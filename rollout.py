@@ -68,7 +68,6 @@ class Rollout:
         # Remove heuristic
         controls.pop(controls.index(control_heuristic))
         for control in controls:
-            # TODO: what happens if control not possible and agent_id stays at same place
             # simulator.update_heuristic(agent_id)
             cost = simulator.simulate_steps(d_M)
 
@@ -86,10 +85,10 @@ class Rollout:
                 at current stage.
         """
         for agent in self.agents:
-            if self.states[agent.states].priority != Priority.None:
+            if self.states[agent.state].priority != Priority.None:
                 self._rollout(agent)
             else:
-                self.controls[agent.id] = min_control.control
+                self.controls[agent.id] = agent.heuristic[agent.state].control
         return self.controls
 
 
