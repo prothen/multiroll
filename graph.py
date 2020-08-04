@@ -258,6 +258,19 @@ class CoordinateContainer(Utils):
         self.id = ID
         self.coordinate = coordinate
 
+        # TODO: check if states are nodes (leg: _is_intersection)
+        #       -> True: add all states to nodes (extract their control and priority)
+        #       ->      -> State: intersection or vertex type
+        # TODO: Traversability - REDEFINE:
+        #       -> trav[Dir] = State (coordinate, direction) -> collect all common directions
+        #       -> edge creation: node in nodes: control in n.control.direction -> co.trav[control.direction] are all edge entries
+        #       -> reverse -> fDir = path[-1].flipDirection() -> vertex_2.trav[fDir] are all entry states for reverse edge
+        #       -> create edges
+        #       -> store all edges in container
+        #       -> create graph
+        # TODO: fetch heuristic for edge -> dict[path.state] = path.control -> allows to easily go through edge_ids and compose heuristic dict that maps states to unique controls
+        
+
         # coordinate instance for all intersections and vertices
         # State -> StateContainer
         self.nodes = dict()
