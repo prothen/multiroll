@@ -62,6 +62,15 @@ class Simulator:
         # TODO: go through all SimAgentContainers is self.agents
         pass
 
+    def update_heuristic(self, agent_id, control):
+        """ Update heuristic for agent. """
+        # TODO: Update SimAgentContainer heuristic attribute
+        # Get Edge for (state,control) pair control.direction
+        # if edge found successful and not blocked by scheduling(TBD -> avoid deadlock)
+        #   get next vertex, compute shortest path and update heuristic dictionary 
+        #   return True
+        return False
+
     def _transition(self, agent):
         """ Return true for successful transition and update agent state. """
         state_next = graph.Dynamics(agent.state)
@@ -80,7 +89,11 @@ class Simulator:
             return Cost.NOT_AT_TARGET
         return Cost.NONE
 
-    def simulate_step(self):
+    def _simulate_step(self):
+        """ Return cost for all SimAgentContainers according to their
+            recent heuristic moving one step.
+
+        """
         cost = 0
         # TODO: agents currently unordered! use collections.OrderedDict()
         for agent in self.agents:
