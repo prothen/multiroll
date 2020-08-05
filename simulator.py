@@ -114,7 +114,7 @@ class Simulator:
         self._reset_agents()
 
         cost = 0
-        for step in range(steps)
+        for step in range(steps):
             cost += self._simulate_step()
         return cost
 
