@@ -80,8 +80,7 @@ class Rollout:
 
         min_control = min(costs, key=costs.get)
         if min_control != control_heuristic:
-            heuristic = heuristics[min_control]
-            agent.update_heuristic(heuristic)
+            agent.update_heuristic(heuristics[min_control])
             self.controls[agent.id] = min_control.control
 
     def rollout(self):
