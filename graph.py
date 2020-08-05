@@ -334,6 +334,7 @@ class AgentContainer(GlobalContainer):
         (r, c) = a.initial_position
         d = a.initial_direction
         self.state = State(r, c, d)
+        self.soc = self.states[self.State]
         # get goal states
         # look up coordinate and get valid directions
         (r, c) = a.target_position
@@ -348,6 +349,9 @@ class AgentContainer(GlobalContainer):
         # Step based dictionary
         self.prediction = dict()
         self._initialise()
+
+    def get_coc(self):
+        return self.states[self.state]
 
     def initialise_prediction(self):
         self._find_initial_edge()
