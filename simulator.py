@@ -19,6 +19,17 @@ class SimAgentContainer(graph.AgentContainer):
         self.agent.heuristic = self.heuristic
 
 
+class Occupancy:
+    FREE = 0
+    OCCUPIED = 1
+
+
+class Cost:
+    NONE = 0
+    NO_TRANSITION = 100
+    NOT_AT_TARGET = 10
+
+
 class Simulator:
     """
         # SIMULATOR
@@ -40,54 +51,56 @@ class Simulator:
         graph.set_env(env)
         self.graph = graph.MyGraph() #TODO: initialise in constructor
         self.rail_env_mirror = FlatlandMirror(env) #TODO: copy all environment elements
+        # define occupancy 
         pass
 
-    # SIMULATOR method
-    def _get_agents_control(self):
-        """ EXAMPLE docstring:
-                Return all agent heuristics
-        """
-        agent_controls = dict()
+    def _initialise(self):
+        # TODO: get each AgentContainer and create a SimAgentContainer
+        pass
+
+    def _reset_agents(self):
+        # TODO: go through all SimAgentContainers is self.agents
+        pass
+
+    def _transition(self, agent):
+        """ Return true for successful transition and update agent state. """
+        state_next = graph.Dynamics(agent.state)
+        coc_next = self.graph.states[state_next]
+        if self.occupancy[coc_next.id] == Occupancy.OCCUPIED:
+            return False
+        coc_now = self.graph.states[agent.state]
+        self.occupancy[coc_now.id] = Occupancy.FREE
+        self.occupancy[coc_next.id] = Occupancy.OCCUPIED
+        agent.state = state_next
+        return True
+
+    def _cost_for_commuters(self, agent):
+        """ Penalise all agents that are in commute and not arrived yet. """
+        if not agent.target.coc.id != agent.get_coc().id:
+            return Cost.NOT_AT_TARGET
+        return Cost.NONE
+
+    def simulate_step(self):
+        cost = 0
+        # TODO: agents currently unordered! use collections.OrderedDict()
         for agent in self.agents:
-            agent_controls[agent.id] = agent.sim_control
-        return agent_controls
+            if not self._transition(agent):
+                cost += Cost.NO_TRANSITION
+            cost += self._cost_for_commuters(agent)
+        return cost
 
-    def simulate_step(self, controls):
-        # for each agent:
-            # update states
-            # check if cells are free
-            # update agents sim_state
-        # return cost
-        pass
-
-    # SIMULATOR method
-    def simulate_steps(self, agent_control, steps):
+    def simulate_steps(self, steps):
         """
-           
+
            # TO BE DONE in rollout.py
            agent_container:
                     update heuristic for rollout agent
                     store heuristics temporary (edge_id list)
         """
-        # RESET simulation
-        # reset all agents
-        ## agent_container.reset_sim()
+        self._reset_agents()
 
-        ## 
-        ## simulate one step
-        ## rail_env follows agent_ids (sequential)
+        cost = 0
+        for step in range(steps)
+            cost += self._simulate_step()
+        return cost
 
-        ## control = agent_control.value()
-        ## if control not agents[agent_id].heuristic[0]:
-        ##      recompute heuristic (graph)
-        ##
-
-        ## simulate agents
-        ## compute heuristic for agent_id
-        ## find current edge (state, control) pair
-        ## update path for current agent_id
-
-        ## get agents control
-        # agent_controls = self.simulator_get_agents_control(0)
-        ## overwrite agent_id heuristic
-        # agent_controls.update(**agent_control)
