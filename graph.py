@@ -70,6 +70,12 @@ class CoordinateType(enum.IntEnum):
     INTERSECTION = 1
 
 
+class StateType(enum.IntEnum):
+    NONE = 0
+    INTERSECTION = 1
+    VERTEX = 2
+
+
 Tests = [[Control.L, -1],
          [Control.F, 0],
          [Control.R, 1]]
@@ -299,14 +305,16 @@ class CoordinateContainer(Utils):
             self.states[state] = sc
             self.valid_states[state] = sc
             for control in valid_controls:
-                self.direction2states[control.direction][state] = None
+                self.direction2states[control.direction][state] = control
 
             if d not in vertex_directions:
                 if not self.type == CoordinateType.INTERSECTION:
                     continue
                 self.intersections[state] = sc
+                sc.type = StateType.INTERSECTION
             else:
                 self.vertices[state] = sc
+                sc.type = StateType.VERTEX
             self.nodes[state] = sc
         self.railway[coordinate] = self
 
@@ -327,6 +335,7 @@ class StatesContainer(object):
         self.coc = coordinate_container
         self.id = self.coc.id
 
+        self.type = state_type
         self.n_controls = self.coc.n_controls[state]
         self.priority = Priority(self.n_controls - 1)
         self.controls = self.coc.controls[state]
@@ -481,8 +490,8 @@ class MyGraph(Utils):
         self.graph = networkx.Graph()
         self.initialise()
 
-    def find_vertices(self):
-        """ Defines all vertices with unique railway ID.
+    def initailise_railway(self):
+        """ Defines all railway coordinates with unique railway ID.
 
             Note
                 self.vertices has railway id
@@ -496,6 +505,16 @@ class MyGraph(Utils):
             id_railway += 1
             coordinate = Coordinate(r, c)
             CoordinateContainer(id_railway, coordinate)
+
+    def _is_explored(self, state, control):
+        return StateControl(state, control) in self.edge_collection.keys()
+
+    def _get_entry_states(self, coc, control):
+        return coc.direction2states[control.direction]
+
+    def _get_reverse_control_direction(self, path):
+        """ Return control direction in reverse path direction. """
+        return path[-1][1].d
 
     def _find_edge_entry_states(self, vertex, control):
         """ Find all possible states that lead to the same edge. """
@@ -523,11 +542,11 @@ class MyGraph(Utils):
                         self.intersections[state] = self.states[state]
         return edge_entries
 
-    def _find_edge_control(self, vertex, control):
+    def _find_edge_control(self, state, control):
         """ Return state controls pairs for each grid element along edge.
 
             Note:
-                Returns list of (state,control) from vertex+1 cell until goal.
+                Returns list of (state,control) from state+1 cell until goal.
 
         """
         path_controls = list()
@@ -536,242 +555,61 @@ class MyGraph(Utils):
         state = Simulate[controls.control](state, controls)
         controls = self.states[state]
 
-        # test that the current coordinate is not an intersection and not a vertex
-        while self._n_directions(state) <= 2 and len(controls) < 2:
+        while sc.type == StateType.NONE:
             n_path += 1
             controls = controls[0]
             state = Simulate[controls.controls](state, controls)
             path.append((controls, state))
             sc = self.states[state]
-            controls = sc.controls
-        goal_state = state
-        if goal_state not in self.vertices.keys():
-            # Create artificial vertex for intersection
-            self.intersections[state] = self.states[state]
-        priority = self._edge_priority(goal_state)
-        for state, control in edge_entry_states.items():
-            state_control = StateControl(state, control)
-            self.edge_collection[state_control] = edge_container_id 
-            # define edge pairs priority
-            pair = Pair(state, goal_state)
-            self.edges = Edge(pair, priority, path, n_path)
-        # get edge_container
-        # add all edges 
+        return path_controls
 
-    def _find_reverse_goal_state(self, edge_container):
-        ec = edge_container
-
-        # get edge
-        # get path
-        # get last element
-        # extract direction
-        # go through goal_coordinaten
-        # -> create goal_coordinate
-        # -> coc
-        # -> go through all controls.items() 
-        # -> save all states that provide direction to path element
-        # -> update intersections if not added already
-        # -> add StateControl hash to edges 
-        return goal_state, goal_control
-
-    def _define_edge_from_path(self, entry_states, path, edge_container_id):
-        edges = list()
+    def _define_edge_from_path(self, entry_states, path):
         goal_state = path[0][0]
-        priority = self.states[goal_state].priority
-        for entry_state, control in entry_states.items():
-            state_control = StateControl(entry_state, control)
-            self.edge_collection[state_control] = edge_container_id
-            edge_id = len(self.edge_collection) + 1
-
-            pair = Pair(entry_state, goal_state)
-            edges += Edge(pair, priority, path, n_path)
-        return edges
-
-    def _is_explored(self, state, control):
-        return StateControl(state, control) in self.edge_collection.keys()
-
-    def _find_edges(self, vertex: State, intersections: dict):
-        """ Return edges for a vertex to the next intersection or vertex.
-
-            Note:
-                The exploration is based on the deadend compliant state->control
-                dictionary and creates an edge to itself.
-        """
         edges = list()
-        state_container = self.vertices[vertex]
-        controls = state_container.controls
-        print('found state controls: {}'.format(controls))
-        for control in controls:
-            # Skip already explored edges using the edge_collection
-            if self._is_explored(state_container.state, control):
-                continue
-            edge_container_id = len(self.edges) + 1
-            edge_container = EdgeContainer(edge_container_id)
-
-            # GET FORWARD EDGES
-            edge_entry_states = self._find_edge_entry_states(vertex, control)
-            path = self._find_edge_control(vertex, control)
-            edges = self._define_edge_from_path(edge_entry_states,
-                                                path,
-                                                edge_container_id)
-            for edge in edges:
-                edge_container.add_forward_edge(edge)
-
-            # GET BACKWARD EDGES
-            goal_state, goal_control = self._find_reversed_goal(edge_forward)
-            edge_entry_states = self._find_edge_entry_states(goal_state,
-                                                             goal_control)
-            path = self._find_edge_control(goal_state, goal_control)
-            edges = self._define_edge_from_path(edge_entry_states,
-                                                path,
-                                                edge_container_id)
-            for edge in edges:
-                edge_container.add_forward_edge(edge)
-            for edge in edges:
-                edge_container.add_forward_edge(edge)
-
-            # TODO: Shortest path -> Edge -> pair -> pairs -> other edges
-            # Search corresponding direction
-            # CREATING EDGECONTROL
-            # TODO: define unique edge id
-
-            # LEGACY:
-            # find REVERSE
-            # TODO: this is not the last path element but the goal_state direction!
-            path_entry_direction = path[-1][1].d
-            coordinate = Coordinate(state.r, state.c)
-            c = self.railway[coordinate].controls
-            ld = list()
-            for cd in c:
-                for cdi in cd:
-                    if cdi.direction == path_entry_direction:
-                        nd = (State(state.r, state.c, cdi.direction))
-                        ld.append(nd)
-
-            #TODO; define edge from all nd to vertex
-            #       --> 
-            # TODO: add valid_directions, all_control_bits
-            #self.environment[coordinate].valid_directions
-            # get last state before new_vertex 
-            # get all controls 
-            # test all controls / directions and collect all that yield previous state
-
-            # for which states do we get in previous state
-            vertex = state
-            state = vertex
-            n_path = 1
-            state = Simulate[controls_i.control](state, controls_i)
-            controls_i = self.states[state]
-            # test that the current coordinate is not an intersection and not a vertex
-            while self._n_directions(state) <= 2 and len(controls_i) < 2:
-                n_path += 1
-                controls_i = controls_i[0]
-                state = Simulate[controls_i.control](state, controls_i)
-                path.append(controls_i)
-                controls_i = self.states[state]
-            print('Self loop detected') if vertex == state else None
-            if state not in self.vertices.keys():
-                # Create artificial vertex for intersection
-                # TODO: handle vertex collision
-                # --> create lookup for vertex --> (m,N) --> same coordinate -> same m
-                intersections[state] = None
-
-            d = self.pairs.keys()
-            condition_pair = pair in d
-            condition_pair_mirror = pair_mirror in d
-            # link each pair to same container
-            def update_pairs(self):
-                if not condition_pair:
-                    if not condition_pair_mirror:
-                        coordinate = Coordinate(state.r, state.c)
-                        self.railay[coordinate].append_pair_id(self.n_pairs)
-                        # create new pair ID
-                        pair_container = PairContainer(ID=self.n_pairs,
-                                                       pair=pair)
-                        self.pairs[pair] = pair_container
-                        self.pairs[pair].edges[edge_id] = edge
-                        # ADD via external logic self.pairs[pair_mirror].append_edge(edge)
-                        self.n_pairs += 1
-                        print('Previously unencountered pair detected and added')
-                        return
-                    print('Pair: {} (linked to mirror)'.format(pair))
-                    self.pairs[pair] = PairContainerMirror(self.pairs[pair_mirror])
-                self.pairs[pair].append_edge(edge)
-                print('Pair: {} (appended)'.format(pair))
-            update_pairs(self)
-            edges.append(edge)
+        for entry_state, control in entry_dict.items():
+            if self._is_explored(entry_state, control):
+                raise RuntimeError()
+            edge_id = len(self.edge_collection) + 1
+            edge_path = (entry_state, control) + path
+            priority = entry_state.priority
+            pair = Pair(entry_state, goal_state)
+            edges += Edge(pair, priority, edge_path, n_path)
+            self.edge_collection[StateControl(state, control)] = Edge
         return edges
+
+    def _find_vertices_edges(self):
+        for vertex in self.vertices.keys():
+            controls = vertex.controls
+            for control in controls:
+                if self._is_explored(state_container.state, control):
+                    continue
+                edge_container_id = len(self.edges) + 1
+                edge_container = EdgeContainer(edge_container_id)
+                entry_coc = vertex.coc
+
+                entry_states = self.get_entry_states(entry_coc, control)
+                path = self._find_edge_control(entry_coc, control)
+                edges = self._get_edges_from_path(entry_states, path)
+                self.ec.add_forward_edges(edges_forward)
+
+                goal_state = None
+                path = None
+                reverse_direction = self._get_reverse_control_direction(path)
+                edges_backward = vertex.coc.direction2states[control.direction]
+                self.ec.add_backward_edges(edges_backward)
+                self.edges[edge_container_id] = edge_container
+
+    def _find_intersection_edges(self):
+        # to be done
+        pass
 
     def find_edges(self):
-        intersections = dict()
-        edge_list = list()
-        START = True
-        explore = dict(self.vertices)
-        idx = 0
-        # Explore all known vertices for intersections
-        # -> then explore all intersections until no more intersections are detected
-        while len(intersections) > 0 or START:
-            START = False
-            idx += 1
-            intersections = dict()
-            for vertex in explore.keys():
-                edges = self._find_edges(vertex, intersections)
-                self.vertices[vertex] = edges
-                edge_list += edges
-            self.vertices.update(intersections)
-            # Add new intersections (fake-vertices) for exploration
-            explore = dict(intersections)
-            print('{} : found new'.format(idx))
-
+        edges.update(**self._find_vertices_edges())
+        edges.update(**self._find_intersection_edges())
 
     def initialise(self):
-        self.find_vertices()
+        self.initialise_railway()
         self.find_edges()
-        # collect collision elements
-        # self.sort_edges()
-        # connect agent targets
-        # initialise agents
-        # compute shortest path for agents
-
-        print(list(railway.values())[-1])
-        eoau
-        # print amount of railway coordinates
-        # --> use as occupancy indicator
-        # --> from coordinate ID derive occupancy matrix
-        # --> save coordinate ID for each vertex
-
-        # get all vertices and find intersections
-        # define all transitions
-        print(env)
-        for agent in env.agents:
-            pass
-            # state from agent
-            # get goal coordinate
-            # get valid directions of target)
-            # find next vertices/intersections
-            # create edges add to edges_list
-            # find vertices (explore
-
-        # for each agent find next vertex
-        for agent in env.agents:
-            pass
-            # get initial position
-            # get initial direction
-            # create STATE
-            # if a STATE is a vertex
-            # optimise
-
-        #for intersection in intersections.keys():
-        # #   edges = find_vertices(intersection, more_intersections)
-        #    pairs[intersection] = edges
-        #    # print(edges)
-        #    edge_list += edges
-
-
-        # TODO: find shortest path for each agent and upvote edge direction with +1, if completed edge then remove own vote with -1
-        #       -> update active paths consecutively and re-compute whenever the railway changed
-        print('create graph now')
-
 
     def report_vertices(self):
         for vertex in vertices.keys():
