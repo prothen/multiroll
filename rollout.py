@@ -9,7 +9,10 @@ import simulator.py
 
 class Rollout:
     """ 
-
+        
+        Rollout only interacts with simulator to get flatland metrics. So
+        only simulator receives env argument.
+    
         Note:
             agent_container:
                 - should provide feed_forward control to simulator
@@ -21,9 +24,11 @@ class Rollout:
                 - compute reward for each prediction step
                 - provide method to return cost given agent_states
 
+
     """
     def __init__(self, env):
         # Dictionary of agents with key: agent_id and value: agent_container
+        # TODO: initialise agents from simulator
         self.agents = None
         # Integer for prediction horizon
         self.prediction_horizon = None
@@ -71,6 +76,7 @@ class Rollout:
             if simulator.update_heuristic(agent_id, control):
                 cost = simulator.simulate_steps(d_M)
             heuristics[control] = self.agents[agent_id].heuristic
+            costs[control] = cost
 
         min_control = min(costs, key=costs.get)
         if min_control != heuristic:
