@@ -149,9 +149,6 @@ class GlobalContainer(object):
     # Priority dictionary
     priority_dict = dict([(p, dict()) for p in Priority])
 
-    def __init__(self):
-        self._update_env()
-
     @classmethod
     def _update_env(cls):
         global env
@@ -166,8 +163,7 @@ env = None
 # legacy
 def set_env(env_arg):
     global env
-    env = env_arg
-    #GlobalContainer.set_env(env_arg)
+    GlobalContainer.set_env(env_arg)
 
 
 class Utils(GlobalContainer):
@@ -258,7 +254,6 @@ class CoordinateContainer(Utils):
             -> e.g. direction based controls
     """
     def __init__(self, ID, coordinate, debug_is_enabled=True):
-        super().__init__()
         all_control_bits = self._all_control_bits(coordinate)
         valid_directions = self._valid_directions(all_control_bits)
         vertex_directions = self._vertex_directions(all_control_bits, valid_directions)
@@ -478,7 +473,6 @@ class MyGraph(Utils):
             Update active edges or compute shortest path.
     """
     def __init__(self, debug=False):
-        super().__init__()
 
         self._verbose = debug
         self._show_transitions = False
