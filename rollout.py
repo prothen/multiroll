@@ -68,7 +68,7 @@ class Rollout:
         # Remove heuristic
         controls.pop(controls.index(control_heuristic))
         for control in controls:
-            # simulator.update_heuristic(agent_id)
+            heuristics[control] = simulator.update_heuristic(agent_id)
             cost = simulator.simulate_steps(d_M)
 
         min_control = min(costs, key=costs.get)
