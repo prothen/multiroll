@@ -15,6 +15,7 @@ class SimAgentContainer(graph.AgentContainer):
 
         # Initialise default heuristic
         self.heuristic = self.agent.heuristic.copy()
+
     def update_heuristic(self):
         self.agent.heuristic = self.heuristic
 
@@ -85,7 +86,7 @@ class Simulator:
 
     def _cost_for_commuters(self, agent):
         """ Penalise all agents that are in commute and not arrived yet. """
-        if not agent.target.coc.id != agent.get_coc().id:
+        if not agent.target.coc.id == agent.get_coc().id:
             return Cost.NOT_AT_TARGET
         return Cost.NONE
 
