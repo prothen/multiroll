@@ -37,7 +37,7 @@ StateControl = collections.namedtuple('State', ['state', 'control'])
 # Store a pair of vertices
 Pair = collections.namedtuple('Pair', ['vertex_1', 'vertex_2'])
 # Define an edge with its corresponding feed_forward control (autopilot until next intersection)
-Edge = collections.namedtuple('Edge', ['pair', 'priority', 'feed_forward', 'length'])
+Edge = collections.namedtuple('Edge', ['pair', 'priority', 'path', 'length'])
 
 
 class Direction(enum.IntEnum):
@@ -333,6 +333,9 @@ class StateContainer(object):
         # Store edge_id
         self.edges = list()
 
+        # TODO: Store edges indexed by reachable states
+        self.traverse = dict()
+
 
 class AgentContainer(GlobalContainer):
     """ Get subset of metrics from flatland environment. 
@@ -347,8 +350,11 @@ class AgentContainer(GlobalContainer):
     def __init__(self, ID, agent):
         self.id = ID
         self._agent = agent
-        self.state : State = None
-        self.sc : StateContainer = None
+        a = self._agent
+        (r, c) = a.initial_position
+        d = a.initial_direction
+        self.state = State(r, c, d)
+        #self.sc = self.states[self.state]
 
         # Note: initialised in graph (locate_agents_in_graph)
         self.target = Coordinate(*agent.target)
@@ -372,27 +378,50 @@ class AgentContainer(GlobalContainer):
 
     def initialise(self):
         """ Fetch current states and update targets. """
-        self.update()
-        self.target_container = self.railway(self.target)
+        #self.update()
+        self.target_container = self.railway[self.target]
         self.target_nodes = self.target_container.valid_states
 
     def locate(self):
         """ Find next search node and update heuristics if on edge. """
-        if not self.states[self.state].type & StateType.NODE:
-            edge = self.sc.edges[0]
-            edge_direction = edge.path_states[self.state]
-            goal_state = edge.goal_state[edge_direction]
-            self.heuristic.update(**edge.path[edge_direction])
-            self.current_node = edge.goal_state[edge_direction]
+        sc = self.states[self.state]
+        if not sc.type & StateType.NODE:
+            edge_container_id = sc.edges[0]
+            edge_container = self.edges[edge_container_id]
+            edge_direction = edge_container.path_states[self.state]
+            goal_state = edge_container.goal_state[edge_direction]
+            self.heuristic.update(edge_container.path[edge_direction])
+            self.current_node = edge_container.goal_state[edge_direction]
+            return
         self.current_node = self.state
+
+    def update_path(self, path):
+        """ Update path to receive agent heuristic. """
+
+        for idx, state in enumerate(path):
+            if idx == len(path)-1:
+                continue
+            control = self.states[state].traverse[path[idx+1]]
+            edge_path = self.edge_collection[StateControl(state, control)].path
+            #print(edge_path)
+            #print([e.control.control for e in edge_path])
+            #raise RuntimeError()
+            self.heuristic.update(edge_path)
+            self.heuristic.update([(state, control)])
+            print(self.heuristic)
+            print([h.control for h in self.heuristic.values()])
+            #raise RuntimeError()
 
     def update(self):
         """ Update agent state with flatland environment state. """
         a = self._agent
-        (r, c) = a.initial_position
-        d = a.initial_direction
+        d = a.direction
+        (r, c) = a.position
+        d = a.direction
+        #(r, c) = a.initial_position
+        #d = a.initial_direction
         self.state = State(r, c, d)
-        self.sc = self.states[self.state]
+        #self.sc = self.states[self.state]
 
 
 class AgentTraverse(GlobalContainer):
@@ -406,13 +435,6 @@ class AgentTraverse(GlobalContainer):
         self.priority = edge.priority
         self.edge = edge
         self.speed = self.agent.speed
-        #TODO: self.eta = self._initialise_eta()
-
-    def _initialise_eta(self):
-        path_length = edge.path_length
-        # get agent_speed
-        # get path length 
-        pass
 
 
 class EdgeContainer(GlobalContainer):
@@ -459,6 +481,7 @@ class EdgeContainer(GlobalContainer):
                 else EdgeDirection.FORWARD)
 
     def get_edges(self, voted=True):
+        """ Return available edges under evaluated vote. """
         if voted:
             if self._is_forward:
                 return self._forward.values()
@@ -466,6 +489,7 @@ class EdgeContainer(GlobalContainer):
         return dict(**self._forward, **self._backward).values()
 
     def add_edges(self, edges, backward=False):
+        """ Add edges according to EdgeDirection to dict. """
         target_dict = (self._backward if backward else self._forward)
         edge_direction = self._get_direction(backward)
         for edge in edges:
@@ -475,8 +499,8 @@ class EdgeContainer(GlobalContainer):
     def add_path(self, path, backward=False):
         """ Store common path in attribute according to EdgeDirection. """
         edge_direction = self._get_direction(backward)
-        self.goal_state[edge_direction] = path.pop()
-        self.path[edge_direction] = path
+        self.goal_state[edge_direction] = path[-1].state
+        self.path[edge_direction] = path[:-1]
 
     def add_states(self, ingress_states, path, backward=False):
         """ Add direction encocding for state entries"""
@@ -494,8 +518,7 @@ class EdgeContainer(GlobalContainer):
 
     def get_vote_affected_agents(self):
         """ Return all minority agent_ids from edge. """
-        vote_result = (EdgeType.Forward 
-                        if self.vote <= 0 else EdgeType.Backward)
+        vote_affected = self._get_direction(backward=self.vote>0)
 
         return self._agent_registry[vote_result]
 
@@ -535,7 +558,7 @@ class MyGraph(Utils):
     def __init__(self, debug=False):
         self.debug_is_enabled = debug
 
-        self._graph = networkx.Graph()
+        self._graph = networkx.DiGraph()
 
         self._initialise_agents()
         self._initialise_graph()
@@ -566,15 +589,13 @@ class MyGraph(Utils):
                 Returns list of (state,control) from state+1 cell until goal.
 
         """
-        n_path = 1
         path = list()
         state, control = list(ingress_states.items())[0]
-        state = Simulator(state, control)
         path.append(StateControl(state, control))
+        state = Simulator(state, control)
 
         while not self.states[state].type & StateType.NODE:
             self.states[state].edges.append(edge_container_id)
-            n_path += 1
             control = self.states[state].controls[0]
             path.append(StateControl(state, control))
             state = Simulator(state, control)
@@ -598,6 +619,7 @@ class MyGraph(Utils):
 
             self.edge_collection[StateControl(ingress_state, control)] = edge
             edges.append(edge)
+            self.states[ingress_state].traverse[goal_state] = control
 
         return edges
 
@@ -616,6 +638,7 @@ class MyGraph(Utils):
                 ingress_states = self._edge_ingress_states(node.state, direction)
                 path = self._find_edge_path(ingress_states, edge_container_id)
                 edges = self._define_edges_from_path(ingress_states, path)
+                edge_container.add_path(path, backward=False)
                 edge_container.add_states(ingress_states, path)
                 edge_container.add_edges(edges)
 
@@ -640,16 +663,23 @@ class MyGraph(Utils):
             CoordinateContainer(id_railway, coordinate)
 
     def _create_graph(self):
+        """ Initialise networkx graph with all edges.
+
+            Note:
+                Recommended to first run vote edges and update edge_containers
+                to remove deadlocks.
+
+            TODO:
+                Remove edge_containers from voting, if active_agents on edge
+                (e.g.: from init)
+        """
         for edge in self.edge_collection.values():
-            print(edge)
             self._graph.add_edge(*edge.pair, length=edge.length)
         self._graph.edges()
 
     def _update_agents(self):
         for agent in self.agents.values():
-            targets = agent.targets[0]
-            agent
-
+            self.shortest_path(agent.id)
 
     def _initialise_graph(self):
         self._initialise_railway()
@@ -663,24 +693,37 @@ class MyGraph(Utils):
         for agent_id, agent in enumerate(self.env.agents):
             self.agents[agent_id] = AgentContainer(agent_id, agent)
 
+    def _shortest_path(self, start, goal):
+        """ Parse arguments to networkx implementation. """
+        return networkx.shortest_path(self._graph, start, goal, 'length')
+
     def shortest_path(self, agent_id):
-        """ Update agent states from flatland environment. 
+        """ Update heuristic for agent with agent_id. """
+        import time
+        agent = self.agents[agent_id]
+        current = agent.current_node
+        for target in agent.target_nodes.keys():
+            try:
+                timestamp = time.time()
+                sp = self._shortest_path(current, target)
+                agent.update_path(sp)
+                print('Agent{} : {}s'.format(agent_id, time.time() - timestamp))
+                break
+            except networkx.NetworkXNoPath as e:
+                print(e, '\nxxx - Target: ', target)
+                eoau
+                continue
 
-            Todo:
-                - Define custom observation that returns 
-                    dict[id] = States(r, c, d)
-        """
-        # get target states
-        # get current state (next_vertex
-        pass
-
-    # TODO: Testfunction -> move to simulator.py -> rollout.py
+    # NOTE: Final placement under rollout.py
     def controls(self):
         controls = dict()
         for agent in self.agents.values():
             try:
+                agent.update()
+                print(agent.state)
                 controls[agent.id] = agent.heuristic[agent.state].control
-            except:
+            except Exception as e:
+                print('FALIED', e)
                 controls[agent.id] = Control.F
         return controls
 
@@ -690,13 +733,8 @@ class MyGraph(Utils):
             agent.update()
 
     def visualise(self, env_renderer):
-        #states = list()
-        #for agent in self.agents.values():
-        #    print(agent)
-        #    print(agent.state)
-        #    states.append(agent.state)
+        """ Call display utility methods and visualise metrics and states. """
         import display
-        #display.show_states(env_renderer, states)
         display.show_agents(env_renderer, self.agents.values())
 
 
