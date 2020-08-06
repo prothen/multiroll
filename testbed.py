@@ -41,7 +41,7 @@ ratios = {1.: 0.25,
           1. / 2.: 0.25,
           1. / 3.: 0.25,
           1. / 4.: 0.25} 
-gen_schedule = sparse_schedule_generator(ratios)
+gen_schedule = sparse_schedule_generator({1:1})
 
 env = RailEnv(
         width=50,
@@ -81,6 +81,7 @@ if __name__ == "__main__":
     g = graph.MyGraph()
     print('Graph creation completed!\n\t--> {}s'.format(time.time()-t0))
     for step in range(500):
+        input('Next step?')
         print(step)
         controls = g.controls()
         print(controls)
