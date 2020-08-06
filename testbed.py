@@ -54,7 +54,7 @@ env = RailEnv(
             max_rails_in_city=2,
             ),
         schedule_generator=gen_schedule,
-        number_of_agents=2,
+        number_of_agents=1,
         #malfunction_generator_and_process_data=malfunction_from_params(
         #    params_malfunction),
         obs_builder_object=GlobalObsForRailEnv(),
@@ -83,6 +83,7 @@ if __name__ == "__main__":
     for step in range(500):
         print(step)
         controls = g.controls()
+        print(controls)
         env.step(controls)
         g.visualise(env_renderer)
         env_renderer.render_env(
