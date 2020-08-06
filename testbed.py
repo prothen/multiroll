@@ -87,18 +87,8 @@ if __name__ == "__main__":
         env.step(controls)
         g.update()
         g.visualise(env_renderer)
-        env_renderer.render_env(
-                show=True,
-                show_agents=True, 
-                show_predictions=False, 
-                show_observations=False)
         input('Continue?')
 
-    env_renderer.render_env(
-            show=True, 
-            show_agents=True, 
-            show_predictions=False, 
-            show_observations=False)
     g.visualise(env_renderer)
     env_renderer.gl.show()
     input('press to close')
