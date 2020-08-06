@@ -121,6 +121,7 @@ Dynamics[Direction.W] = (lambda state: State(state.r, state.c-1, Direction.W))
 
 Simulator = (lambda state, control: Dynamics[control.direction](state))
 
+
 # LEGACY Control of current state to transition state
 Simulate = dict()
 Simulate[Control.NONE] = (lambda state, control: State(state.r, state.c,
@@ -144,9 +145,9 @@ class GlobalContainer(object):
     states = dict()
     # All nodes (vertices and intersections) indexed by state and state_container value
     nodes = dict()
-    # All States that are vertices and their StatesContainer
+    # All States that are vertices and their StateContainer
     vertices = dict()
-    # All states that are intersections and their StatesContainer
+    # All states that are intersections and their StateContainer
     intersections = dict()
     # All pairs of vertices (combine similar ones) and their ID as value
     pairs = dict()
@@ -296,7 +297,7 @@ class CoordinateContainer(Utils):
             self.controls[state] = valid_controls
             self.n_controls[state] = len(valid_controls)
 
-            sc = StatesContainer(state, self)
+            sc = StateContainer(state, self)
             self.states[state] = sc
             self.valid_states[state] = sc
             for control in valid_controls:
@@ -314,7 +315,7 @@ class CoordinateContainer(Utils):
         self.railway[coordinate] = self
 
 
-class StatesContainer(object):
+class StateContainer(object):
     """ Utility class to collect information about state.
 
         Used in global vertices and intersections.
