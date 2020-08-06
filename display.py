@@ -2,6 +2,14 @@
 
 from graph import Direction
 
+class Color:
+    STATE = (255,0,0,)
+    TARGET = (0,255,0)
+
+class Dimension:
+    STATE = 30
+    TARGET = 30
+
 # Plot related
 Transition2Color = dict()
 Transition2Color[Direction.N] = 'r'
@@ -44,6 +52,19 @@ def show_path(env_renderer, path):
     # todo
     pass
 
+def show_agents(env_renderer, agents):
+    """ Show states defined in StatesContainer through Flatland env_renderer. 
+    
+        Todo:
+            Update directions
+    """
+    for agent in agents:
+        state = agent.state
+        target = agent.target
+
+        env_renderer.gl.scatter(*(state.c, -state.r), color=Color.STATE, layer=1, marker="o", s=Dimension.STATE)
+        env_renderer.gl.scatter(*(target.c, -target.r), color=Color.TARGET, layer=1, marker="o", s=Dimension.TARGET)
+
 def show_states(env_renderer, states):
     """ Show states defined in StatesContainer through Flatland env_renderer. 
     
@@ -51,8 +72,4 @@ def show_states(env_renderer, states):
             Update directions
     """
     for state in states:
-        #env_renderer.gl.scatter(*(state.c, -state.r), color='r', layer=1, marker="o", s=25) 
-        env_renderer.gl.scatter(*(state.c, -state.r), color=(0,255,0), layer=1, marker="o", s=5) 
-        env_renderer.renderer.plot_single_agent((state.r, state.c),
-        #                                        state.d, 'r', target=(0,0),
-        #                                        selected=True)
+        env_renderer.gl.scatter(*(state.c, -state.r), color=Color.STATE, layer=1, marker="o", s=Dimension.STATE)
