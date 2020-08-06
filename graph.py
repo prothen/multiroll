@@ -72,8 +72,9 @@ class CoordinateType(enum.IntEnum):
 
 class StateType(enum.IntEnum):
     NONE = 0
-    INTERSECTION = 1
-    VERTEX = 2
+    NODE = 1
+    INTERSECTION = 3
+    VERTEX = 5
 
 
 Tests = [[Control.L, -1],
@@ -241,8 +242,6 @@ class Utils(GlobalContainer):
         return CoordinateType.INTERSECTION
 
 
-
-
 class CoordinateContainer(Utils):
     """ Create a container of information collected in a coordinate.
 
@@ -270,7 +269,7 @@ class CoordinateContainer(Utils):
         self.controls = dict()
         # Amount of controls for each direction
         self.n_controls = dict()
-        # Direction to state mapping to recover same entry states for edge
+        # Direction to state mapping to recover same entry states for edge and their control
         self.direction2states = dict([(di, dict()) for di in Direction])
 
         if debug_is_enabled:
@@ -485,22 +484,6 @@ class MyGraph(Utils):
         self.graph = networkx.Graph()
         self.initialise()
 
-    def initailise_railway(self):
-        """ Defines all railway coordinates with unique railway ID.
-
-            Note
-                self.vertices has railway id
-                self.railway dict has ID as keys and vertices list with coordinate
-                    --> each vertex has edges that need to be activated or deactivated
-                    --> collect pairs
-        """
-        env_railway = numpy.nonzero(self.grid)
-        id_railway = -1
-        for r, c in zip(*env_railway):
-            id_railway += 1
-            coordinate = Coordinate(r, c)
-            CoordinateContainer(id_railway, coordinate)
-
     def _is_explored(self, state, control):
         return StateControl(state, control) in self.edge_collection.keys()
 
@@ -508,34 +491,29 @@ class MyGraph(Utils):
         return coc.direction2states[control.direction]
 
     def _get_reverse_control_direction(self, path):
-        """ Return control direction in reverse path direction. """
-        return path[-1][1].d
+        """ Return control direction in reverse path direction.
+            
+            Note:
+                Looks at one cell before exit_state and returns
+                its control
+        """
+        return path[-2].control.direction
 
-    def _find_edge_entry_states(self, vertex, control):
+    def _initialise_railway(self):
+        """ Defines all railway coordinates with unique railway ID. """
+        env_railway = numpy.nonzero(self.grid)
+        id_railway = -1
+        for r, c in zip(*env_railway):
+            id_railway += 1
+            coordinate = Coordinate(r, c)
+            CoordinateContainer(id_railway, coordinate)
+
+    def _get_exit_coordinate_from_path(self, path):
+        return self.states[path[-1].state]
+
+    def _find_equal_traversible_states(self, state, control):
         """ Find all possible states that lead to the same edge. """
-
-        edge_entry_states = dict()
-        edge_entry_states[vertex] = control
-
-        direction = Simulator(vertex, control).d
-
-        coordinate_container = self.states[vertex].coc
-        state_containers = coordinate_container.valid_states.values()
-
-        for state_container in state_containers:
-            state = state_container.state
-            controls = state_container.controls
-            for control in controls:
-                if control.direction == direction:
-                    entry_vertices[state] = control
-
-                # Detect possible intersections on this occasion
-                if state not in self.vertices.keys():
-                    print('Found entry to edge via intersection')
-                    if state not in self.intersections.keys():
-                        print('Added entry to intersections dict!')
-                        self.intersections[state] = self.states[state]
-        return edge_entries
+        return self.states[state].coc.direction2states[control.direction]
 
     def _find_edge_control(self, state, control):
         """ Return state controls pairs for each grid element along edge.
@@ -544,100 +522,74 @@ class MyGraph(Utils):
                 Returns list of (state,control) from state+1 cell until goal.
 
         """
-        path_controls = list()
-        state = vertex
         n_path = 1
-        state = Simulate[controls.control](state, controls)
-        controls = self.states[state]
+        path = list()
 
-        while sc.type == StateType.NONE:
+        state = Simulate(state, controls)
+        control = self.states[state].controls
+
+        while self.states[state].type == StateType.NONE:
             n_path += 1
-            controls = controls[0]
-            state = Simulate[controls.controls](state, controls)
-            path.append((controls, state))
+            control = control[0]
+            state = Simulate(state, controls)
+            path.append(StateControl(state, control))
             sc = self.states[state]
-        return path_controls
+        return path
 
-    def _define_edge_from_path(self, entry_states, path):
-        goal_state = path[0][0]
+    def _define_edges_from_path(self, entry_states, path):
         edges = list()
+        exit_state = path[-1].state
         for entry_state, control in entry_dict.items():
             if self._is_explored(entry_state, control):
                 raise RuntimeError()
             edge_id = len(self.edge_collection) + 1
-            edge_path = (entry_state, control) + path
-            priority = entry_state.priority
+            edge_path = [StateControl(entry_state, control)] + path
+
+            priority = exit_state.priority
             pair = Pair(entry_state, goal_state)
-            edges += Edge(pair, priority, edge_path, n_path)
-            self.edge_collection[StateControl(state, control)] = Edge
+            edge = Edge(pair, priority, edge_path, n_path)
+
+            self.edge_collection[StateControl(state, control)] = edge
+            edges += edge
+
         return edges
 
-    def _find_vertices_edges(self):
-        for vertex in self.vertices.keys():
-            controls = vertex.controls
+    def _initialise_edges(self):
+        for node in self.nodes.keys():
+            controls = node.controls
             for control in controls:
-                if self._is_explored(state_container.state, control):
+                if self._is_explored(vertex.state, control):
                     continue
                 edge_container_id = len(self.edges) + 1
                 edge_container = EdgeContainer(edge_container_id)
-                entry_coc = vertex.coc
 
-                entry_states = self.get_entry_states(entry_coc, control)
+                entry_coc = node.coc
+                entry_states = self._find_equal_traversible_states(entry_coc,
+                                                                   control)
                 path = self._find_edge_control(entry_coc, control)
-                edges = self._get_edges_from_path(entry_states, path)
-                self.ec.add_forward_edges(edges_forward)
+                edges = self._define_edges_from_path(entry_states, path)
+                edge_container.add_forward_edges(edges_forward)
 
-                goal_state = None
-                path = None
+                exit_coc = self._get_exit_coc_from_path(path)
                 reverse_direction = self._get_reverse_control_direction(path)
+                # TODO: get_entry_states
                 edges_backward = vertex.coc.direction2states[control.direction]
-                self.ec.add_backward_edges(edges_backward)
+                edge_container.add_backward_edges(edges_backward)
                 self.edges[edge_container_id] = edge_container
 
-    def _find_intersection_edges(self):
-        # to be done
-        pass
-
-    def find_edges(self):
-        edges.update(**self._find_vertices_edges())
-        edges.update(**self._find_intersection_edges())
-
-    def initialise(self):
-        self.initialise_railway()
-        self.find_edges()
-
-    def report_vertices(self):
-        for vertex in vertices.keys():
-            pass
-            #print('\tVertex: \t{}'.format(vertex))
-            #print('\tControl: \t{}'.format(self.states[vertex]))
-
-    def show_vertices(self, env_renderer):
-        #env_renderer.renderer.plot_single_agent((16,22), 1, 'r', target=(0,0),selected=True)
-        #return
-        v = list(vertices.keys())[0]
-        controls = self.states[v]
-        l = list()
-        for v in vertices.keys():
-            for control in controls:
-                l += [Direction2Target[control.direction]]
-                c = Transition2Color[control.direction]
-                env_renderer.renderer.plot_single_agent((v.r, v.c), v.d, 'r',selected=True)
-
-                if self._show_transitions:
-                    env_renderer.renderer.plot_transition(
-                            position_row_col=(v.r, v.c),
-                            transition_row_col=l,
-                            color=c
-                            )
-
-    def initialise_agents(self):
+    def _connect_targets(self):
         """ To be done. """
         # get agent initial position
         # get agent min max speeds
         # get agent_id
         # add to self.agents[id]
         pass
+
+    def initialise(self):
+        self._initialise_railway()
+        self._initialise_edges()
+        self._connect_targets()
+
 
 
 if __name__ == "__main__":
