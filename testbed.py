@@ -23,6 +23,7 @@ from flatland.envs.malfunction_generators import malfunction_from_params, Malfun
 
 
 import graph
+import display
 import observation
 
 
@@ -45,14 +46,14 @@ env = RailEnv(
         width=50,
         height=50,
         rail_generator=sparse_rail_generator(
-            max_num_cities=2, 
+            max_num_cities=4,
             seed=14,
             grid_mode=False,
-            max_rails_between_cities=8,
-            max_rails_in_city=8,
+            max_rails_between_cities=2,
+            max_rails_in_city=2,
             ),
         schedule_generator=gen_schedule,
-        number_of_agents=1,
+        number_of_agents=2,
         #malfunction_generator_and_process_data=malfunction_from_params(
         #    params_malfunction),
         obs_builder_object=GlobalObsForRailEnv(),
@@ -62,7 +63,7 @@ env = RailEnv(
 
 env_renderer = RenderTool(env,
                           gl='PGL',
-                          show_debug=True,
+                          show_debug=False,
                           screen_height=1080,
                           screen_width=1920)
 
@@ -84,7 +85,7 @@ if __name__ == "__main__":
             show_agents=True, 
             show_predictions=False, 
             show_observations=False)
-    g.show_vertices(env_renderer) 
+    g.visualise(env_renderer)
     env_renderer.gl.show()
     input('press to close')
 
