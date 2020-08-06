@@ -86,6 +86,7 @@ if __name__ == "__main__":
         controls = g.controls()
         print(controls)
         env.step(controls)
+        g.update()
         g.visualise(env_renderer)
         env_renderer.render_env(
                 show=True,
