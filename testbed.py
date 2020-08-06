@@ -21,6 +21,7 @@ from flatland.envs.observations import TreeObsForRailEnv, GlobalObsForRailEnv
 from flatland.utils.rendertools import RenderTool, AgentRenderVariant
 from flatland.envs.malfunction_generators import malfunction_from_params, MalfunctionParameters
 
+from flatland.utils.rendertools import AgentRenderVariant
 
 import graph
 import display
@@ -61,6 +62,8 @@ env = RailEnv(
         record_steps=True
         )
 
+
+#agent_render_variant=AgentRenderVariant.BOX_ONLY,
 env_renderer = RenderTool(env,
                           gl='PGL',
                           show_debug=False,
@@ -78,10 +81,18 @@ if __name__ == "__main__":
     g = graph.MyGraph()
     print('Graph creation completed!\n\t--> {}s'.format(time.time()-t0))
     for step in range(500):
-        env.step(dict((a,0) for a in range(env.get_num_agents())))
+        print(step)
+        controls = g.controls()
+        env.step(controls)
+        g.visualise(env_renderer)
+        env_renderer.render_env(
+                show=True,
+                show_agents=True, 
+                show_predictions=False, 
+                show_observations=False)
 
     env_renderer.render_env(
-            show=False, 
+            show=True, 
             show_agents=True, 
             show_predictions=False, 
             show_observations=False)
@@ -89,3 +100,5 @@ if __name__ == "__main__":
     env_renderer.gl.show()
     input('press to close')
 
+
+# env.step(dict((a,0) for a in range(env.get_num_agents())))
