@@ -350,17 +350,20 @@ class AgentContainer(GlobalContainer):
         self.state : State = None
         self.sc : StateContainer = None
 
+        # Note: initialised in graph (locate_agents_in_graph)
         self.target = Coordinate(*agent.target)
+        # To be documented
+        self.target_container = None
+        # Add key for this agents target coordinate to global targets
         self.targets[self.target] = None
 
+        self.target_nodes = None
+        self.current_node = None
 
         # TODO: when initialised?
         # Agent specific goal states that satisfy target coordinate
         self.tc : StateContainer = None
         self.target_edges = list()
-
-        self.search_targets = None
-        self.search_start_node = None
 
         # speed = a.speed_data['speed']
         # import math; self.speed = math.ceil(1/speed)
@@ -371,19 +374,20 @@ class AgentContainer(GlobalContainer):
         """ Fetch current states and update targets. """
         self.update()
         self.target_container = self.railway(self.target)
-        self._targets = self.target_container.valid_states
+        self.target_nodes = self.target_container.valid_states
 
     def locate(self):
-        if len(self.edges) == 1:
+        """ Find next search node and update heuristics if on edge. """
+        if not self.states[self.state].type & StateType.NODE:
             edge = self.sc.edges[0]
             edge_direction = edge.path_states[self.state]
             goal_state = edge.goal_state[edge_direction]
             self.heuristic.update(**edge.path[edge_direction])
-            self.search_start_node = edge.goal_state[edge_direction]
-        self.search_start_node = self.state
+            self.current_node = edge.goal_state[edge_direction]
+        self.current_node = self.state
 
     def update(self):
-        """ Update agent container through its referenced flatland object. """
+        """ Update agent state with flatland environment state. """
         a = self._agent
         (r, c) = a.initial_position
         d = a.initial_direction
@@ -537,8 +541,8 @@ class MyGraph(Utils):
         self._initialise_graph()
 
     def _locate_agents_in_graph(self):
-        self.update()
         for agent in self.agents.values():
+            agent.initialise()
             agent.locate()
 
     def _is_explored(self, state, control):
@@ -635,10 +639,24 @@ class MyGraph(Utils):
             coordinate = Coordinate(r, c)
             CoordinateContainer(id_railway, coordinate)
 
+    def _create_graph(self):
+        for edge in self.edge_collection.values():
+            print(edge)
+            self._graph.add_edge(*edge.pair, length=edge.length)
+        self._graph.edges()
+
+    def _update_agents(self):
+        for agent in self.agents.values():
+            targets = agent.targets[0]
+            agent
+
+
     def _initialise_graph(self):
         self._initialise_railway()
         self._initialise_edges()
         self._locate_agents_in_graph()
+        self._create_graph()
+        self._update_agents()
 
     def _initialise_agents(self):
         """ Parse flatland metrics from agents. """
