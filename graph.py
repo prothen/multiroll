@@ -656,19 +656,30 @@ class MyGraph(Utils):
         # get current state (next_vertex
         pass
 
+    # TODO: Testfunction -> move to simulator.py -> rollout.py
+    def controls(self):
+        controls = dict()
+        for agent in self.agents.values():
+            try:
+                controls[agent.id] = agent.heuristic[agent.state].control
+            except:
+                controls[agent.id] = Control.F
+        return controls
+
     def update(self):
         """ Update each agent with most recent flatland states. """
         for agent in self.agents.values():
             agent.update()
 
     def visualise(self, env_renderer):
-        states = list()
-        for agent in self.agents.values():
-            print(agent)
-            print(agent.state)
-            states.append(agent.state)
+        #states = list()
+        #for agent in self.agents.values():
+        #    print(agent)
+        #    print(agent.state)
+        #    states.append(agent.state)
         import display
-        display.show_states(env_renderer, states)
+        #display.show_states(env_renderer, states)
+        display.show_agents(env_renderer, self.agents.values())
 
 
 
