@@ -33,7 +33,7 @@ State = collections.namedtuple('State', ['r', 'c', 'd'])
 # Defines a state with its row column and direction
 ControlDirection = collections.namedtuple('ControlDirection', ['control', 'direction'])
 # Defines a state control tuple to track of exploration
-StateControl = collections.namedtuple('State', ['state', 'control_direction'])
+StateControl = collections.namedtuple('State', ['state', 'control'])
 # Store a pair of vertices
 Pair = collections.namedtuple('Pair', ['vertex_1', 'vertex_2'])
 # Define an edge with its corresponding feed_forward control (autopilot until next intersection)
@@ -117,6 +117,7 @@ Dynamics[Direction.N] = (lambda state: State(state.r-1, state.c, Direction.N))
 Dynamics[Direction.E] = (lambda state: State(state.r, state.c+1, Direction.E))
 Dynamics[Direction.S] = (lambda state: State(state.r+1, state.c, Direction.S))
 Dynamics[Direction.W] = (lambda state: State(state.r, state.c-1, Direction.W))
+
 
 Simulator = (lambda state, control: Dynamics[control.direction](state))
 
@@ -329,10 +330,12 @@ class StatesContainer(object):
         self.coc = coordinate_container
         self.id = self.coc.id
 
-        self.type = state_type
+        self.type = StateType.NONE
         self.n_controls = self.coc.n_controls[state]
         self.priority = Priority(self.n_controls - 1)
         self.controls = self.coc.controls[state]
+        self.direction2control = dict([(c.direction, c)
+                                       for c in self.controls])
 
 
 class AgentContainer(GlobalContainer):
@@ -412,7 +415,7 @@ class EdgeContainer(GlobalContainer):
         self.vote = 0
         self._forward = dict()
         self._backward = dict()
-        self._edge_dir = dict()
+        self._edge_direction = dict()
         self.active_agents = dict()
 
     def _reset_vote(self):
@@ -429,13 +432,16 @@ class EdgeContainer(GlobalContainer):
             return self._backward.values()
         return dict(**self._forward, **self._backward).values()
 
-    def add_forward_edge(self, edge):
-        self._forward[edge.pair.vertex_1] = edge
-        self._edge_direction[edge.pair.vertex_1] = EdgeContainer.FORWARD
+    def add_forward_edges(self, edges):
+        for edge in edges:
+            print(edge)
+            self._forward[edge.pair.vertex_1] = edge
+            self._edge_direction[edge.pair.vertex_1] = EdgeContainer.FORWARD
 
-    def add_reverse_edge(self, edge):
-        self._backward[edge.pair.vertex_1] = edge
-        self._edge_direction[edge_backward.pair.vertex_1] = EdgeContainer.BACKWARD
+    def add_backward_edges(self, edges):
+        for edge in edges:
+            self._backward[edge.pair.vertex_1] = edge
+            self._edge_direction[edge.pair.vertex_1] = EdgeContainer.BACKWARD
 
     def vote(self, state):
         """ Register interest to use an edge in certain direction. """
@@ -487,18 +493,6 @@ class MyGraph(Utils):
     def _is_explored(self, state, control):
         return StateControl(state, control) in self.edge_collection.keys()
 
-    def _get_entry_states(self, coc, control):
-        return coc.direction2states[control.direction]
-
-    def _get_reverse_control_direction(self, path):
-        """ Return control direction in reverse path direction.
-            
-            Note:
-                Looks at one cell before exit_state and returns
-                its control
-        """
-        return path[-2].control.direction
-
     def _initialise_railway(self):
         """ Defines all railway coordinates with unique railway ID. """
         env_railway = numpy.nonzero(self.grid)
@@ -508,15 +502,19 @@ class MyGraph(Utils):
             coordinate = Coordinate(r, c)
             CoordinateContainer(id_railway, coordinate)
 
-    def _get_exit_coordinate_from_path(self, path):
-        return self.states[path[-1].state]
+    def _reverse_edge_ingress_states(self, path):
+        """ Return all states that led to edge from reversed direction. """
+        goal_state = path[-1].state
+        direction = FlipDirection[path[-2].control.direction]
 
-    def _find_equal_traversible_states(self, state, control):
-        """ Find all possible states that lead to the same edge. """
-        return self.states[state].coc.direction2states[control.direction]
+        return self._edge_ingress_states(goal_state, direction)
 
-    def _find_edge_control(self, state, control):
-        """ Return state controls pairs for each grid element along edge.
+    def _edge_ingress_states(self, state, direction):
+        """ Find all states at coordinate that lead to the same edge. """
+        return self.states[state].coc.direction2states[direction]
+
+    def _find_edge_path(self, ingress_states):
+        """ Return List of StateControl for state and control.
 
             Note:
                 Returns list of (state,control) from state+1 cell until goal.
@@ -524,57 +522,61 @@ class MyGraph(Utils):
         """
         n_path = 1
         path = list()
+        state, control = list(ingress_states.items())[0]
+        state = Simulator(state, control)
+        path.append(StateControl(state, control))
 
-        state = Simulate(state, controls)
-        control = self.states[state].controls
-
-        while self.states[state].type == StateType.NONE:
+        while not self.states[state].type & StateType.NODE:
             n_path += 1
-            control = control[0]
-            state = Simulate(state, controls)
+            control = self.states[state].controls[0]
             path.append(StateControl(state, control))
-            sc = self.states[state]
+            state = Simulator(state, control)
+
+        path.append(StateControl(state, ControlDirection(Control.S, None)))
         return path
 
-    def _define_edges_from_path(self, entry_states, path):
+    def _define_edges_from_path(self, ingress_states, path):
+        """ Parse entry_states and path into edges. """
         edges = list()
-        exit_state = path[-1].state
-        for entry_state, control in entry_dict.items():
-            if self._is_explored(entry_state, control):
+        goal_state = path[-1].state
+        for ingress_state, control in ingress_states.items():
+            if self._is_explored(ingress_state, control):
                 raise RuntimeError()
             edge_id = len(self.edge_collection) + 1
-            edge_path = [StateControl(entry_state, control)] + path
+            edge_path = [StateControl(ingress_state, control)] + path
 
-            priority = exit_state.priority
-            pair = Pair(entry_state, goal_state)
-            edge = Edge(pair, priority, edge_path, n_path)
+            priority = self.states[goal_state].priority
+            pair = Pair(ingress_state, goal_state)
+            edge = Edge(pair, priority, edge_path, len(edge_path))
 
-            self.edge_collection[StateControl(state, control)] = edge
-            edges += edge
+            self.edge_collection[StateControl(ingress_state, control)] = edge
+            edges.append(edge)
 
         return edges
 
     def _initialise_edges(self):
-        for node in self.nodes.keys():
+        """ Iterate over nodes and return edge containers. """
+        for node in self.nodes.values():
             controls = node.controls
             for control in controls:
-                if self._is_explored(vertex.state, control):
+                if self._is_explored(node.state, control):
                     continue
                 edge_container_id = len(self.edges) + 1
                 edge_container = EdgeContainer(edge_container_id)
 
-                entry_coc = node.coc
-                entry_states = self._find_equal_traversible_states(entry_coc,
-                                                                   control)
-                path = self._find_edge_control(entry_coc, control)
-                edges = self._define_edges_from_path(entry_states, path)
-                edge_container.add_forward_edges(edges_forward)
+                # Forward edges
+                direction = control.direction
+                ingress_states = self._edge_ingress_states(node.state, direction)
+                path = self._find_edge_path(ingress_states)
+                edges = self._define_edges_from_path(ingress_states, path)
+                edge_container.add_forward_edges(edges)
 
-                exit_coc = self._get_exit_coc_from_path(path)
-                reverse_direction = self._get_reverse_control_direction(path)
-                # TODO: get_entry_states
-                edges_backward = vertex.coc.direction2states[control.direction]
-                edge_container.add_backward_edges(edges_backward)
+                # Backward edges
+                ingress_states = self._reverse_edge_ingress_states(path)
+                path = self._find_edge_path(ingress_states)
+                edges = self._define_edges_from_path(ingress_states, path)
+                edge_container.add_backward_edges(edges)
+
                 self.edges[edge_container_id] = edge_container
 
     def _connect_targets(self):
