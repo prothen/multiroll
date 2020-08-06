@@ -76,6 +76,10 @@ class StateType(enum.IntEnum):
     INTERSECTION = 3
     VERTEX = 5
 
+class EdgeType(enum.IntEnum):
+    FORWARD = 1
+    BACKWARD = -1
+
 
 Tests = [[Control.L, -1],
          [Control.F, 0],
@@ -139,8 +143,12 @@ class GlobalContainer(object):
     grid = None
     # All railway coordinates
     railway = dict()
+    # Dict of agents with AgentContainer
+    agents = dict()
     # Railway coordinates to IDs
     railway_ids = dict()
+    # Dictionary of target coordinates
+    targets = dict()
     # All States -> ControlDirection (control and physical direction)
     states = dict()
     # All nodes (vertices and intersections) indexed by state and state_container value
@@ -153,7 +161,7 @@ class GlobalContainer(object):
     pairs = dict()
     # All EdgeContainers indexed by a unique ID, partitioned in edges that share railway cells
     edges = dict()
-    # A collection of all unique edges indexed by their StateControl and linked to the EdgeContainer
+    # A collection of all edges indexed by their StateControl and linked to the EdgeContainer
     edge_collection = dict()
     # Priority dictionary
     priority_dict = dict([(p, dict()) for p in Priority])
@@ -237,12 +245,6 @@ class Utils(GlobalContainer):
             controls += [self._directions2controls(directions, Direction(d))]
         return controls
 
-    @staticmethod
-    def _get_coordinate_type(valid_directions):
-        if len(valid_directions) <= 2:
-            return CoordinateType.NORMAL_RAILWAY
-        return CoordinateType.INTERSECTION
-
 
 class CoordinateContainer(Utils):
     """ Create a container of information collected in a coordinate.
@@ -256,14 +258,15 @@ class CoordinateContainer(Utils):
             -> e.g. direction based controls
     """
     def __init__(self, ID, coordinate, debug_is_enabled=True):
+        self.id = ID
+        self.coordinate = coordinate
+
         all_control_bits = self._all_control_bits(coordinate)
         valid_directions = self._valid_directions(all_control_bits)
         vertex_directions = self._vertex_directions(all_control_bits, valid_directions)
         controls = self._controls(all_control_bits, valid_directions)
 
-        self.id = ID
         self.type = self._get_coordinate_type(valid_directions)
-        self.coordinate = coordinate
 
         # All states with nonzero n_controls with reference to their state_containers
         self.valid_states = dict()
@@ -314,6 +317,11 @@ class CoordinateContainer(Utils):
             self.nodes[state] = sc
         self.railway[coordinate] = self
 
+    def _get_coordinate_type(self, valid_directions):
+        if len(valid_directions) <= 2:
+            if not self.coordinate in self.targets.keys():
+                return CoordinateType.NORMAL_RAILWAY
+        return CoordinateType.INTERSECTION
 
 class StateContainer(object):
     """ Utility class to collect information about state.
@@ -337,6 +345,8 @@ class StateContainer(object):
         self.controls = self.coc.controls[state]
         self.direction2control = dict([(c.direction, c)
                                        for c in self.controls])
+        # Store edge_id
+        self.edges = list()
 
 
 class AgentContainer(GlobalContainer):
@@ -349,30 +359,38 @@ class AgentContainer(GlobalContainer):
             - architecture design
             - interfaces to simulator
     """
-    def __init__(self, ID):
+    def __init__(self, ID, agent):
         self.id = ID
-        a = self.env.agents[self.id]
+        self._agent = agent
+        self.state : State = None
+        self.sc : StateContainer = None
+        self.target = Coordinate(*agent.target)
+        self.targets[self.target] = None
+        # Agent specific goal states that satisfy target coordinate
+        self.tc : StateContainer = None
+        self.target_edges = list()
+
+        self.search_targets = None
+        self.search_start_node = None
+
+        # speed = a.speed_data['speed']
+        # import math; self.speed = math.ceil(1/speed)
+        self.path = list()
+        self.heuristic = dict()
+
+    def initialise(self):
+        """ Fetch current states and update targets. """
+        self.update()
+        self.target_container = self.railway(self.target)
+        self._targets = self.target_container.valid_states
+
+    def update(self):
+        """ Update agent container through its referenced flatland object. """
+        a = self._agent
         (r, c) = a.initial_position
         d = a.initial_direction
         self.state = State(r, c, d)
-        self.soc = self.states[self.State]
-        # get goal states
-        # look up coordinate and get valid directions
-        (r, c) = a.target_position
-        self.target = self.railway[Coordinate(r,c)].states.keys()
-        # TODO: compute fraction (steps for one transition)
-        speed = a.speed_data['speed']
-        # Amount of steps necessary for one grid traversal
-        # TODO: DEV-stage: test pending
-        import math; self.speed = math.ceil(1/speed)
-        # List of edge_ids
-        self.path = list()
-        # Step based dictionary
-        self.prediction = dict()
-        self._initialise()
-
-    def get_coc(self):
-        return self.states[self.state]
+        self.sc = self.states[self.state]
 
 
 class AgentTraverse(GlobalContainer):
@@ -408,16 +426,19 @@ class EdgeContainer(GlobalContainer):
                 global N prediction steps along path length M
                 -> matrix &operator should yield zero for collision free
     """
-    FORWARD = 1
-    BACKWARD = -1
-
     def __init__(self, ID):
         self.id = ID
         self.vote = 0
+        self.active_agents = dict()
+
+        # TODO: convenience dict to locate states (remove if time sensitive)
+        self.path_states = dict()
+
         self._forward = dict()
         self._backward = dict()
+
         self._edge_direction = dict()
-        self.active_agents = dict()
+        self._agent_register = dict()
 
     def _reset_vote(self):
         """ Reset vote and allow all edge directions to be used. """
@@ -433,25 +454,39 @@ class EdgeContainer(GlobalContainer):
             return self._backward.values()
         return dict(**self._forward, **self._backward).values()
 
-    def add_forward_edges(self, edges):
+    def add_edges(self, edges, backward=False):
+        target_dict = (self._backward if backward else self._forward)
+        direction_type = (EdgeType.BACKWARD if backward
+                          else EdgeType.FORWARD)
         for edge in edges:
-            print(edge)
-            self._forward[edge.pair.vertex_1] = edge
-            self._edge_direction[edge.pair.vertex_1] = EdgeContainer.FORWARD
+            target_dict[edge.pair.vertex_1] = edge
+            self._edge_direction[edge.pair.vertex_1] = direction_type
 
-    def add_backward_edges(self, edges):
-        for edge in edges:
-            self._backward[edge.pair.vertex_1] = edge
-            self._edge_direction[edge.pair.vertex_1] = EdgeContainer.BACKWARD
+    def add_path_states(self, ingress_states, path, backward=False):
+        """ Add direction encocding for state entries"""
+        direction_type = (EdgeType.BACKWARD if backward
+                          else EdgeType.FORWARD)
+        for state in ingress_states.keys():
+            self.path_states[state] = direction_type
+        for path_state_control in path:
+            self.path_states[path_state_control.state] = direction_type
 
-    def vote(self, state):
+    def vote(self, state, agent):
         """ Register interest to use an edge in certain direction. """
-        self.vote += self._edge_direction[state]
+        direction_type = self._edge_direction[state]
+        self.vote += direction_type
+        self._agent_registry[direction_type] = agent_id
+
+    def get_vote_affected_agents(self):
+        """ Return all minority agent_ids from edge. """
+        vote_result = (EdgeType.Forward 
+                        if self.vote <= 0 else EdgeType.Backward)
+
+        return self._agent_registry[vote_result]
 
     def register(self, agent_id, step):
         """ Register when an agent is expected to enter this edge.  """
         # TODO: if not voted, force switch
-        self.vote += self._edge_direction[state]
         pass
 
     def enter(self, state, agent_id):
@@ -483,25 +518,25 @@ class MyGraph(Utils):
             Update active edges or compute shortest path.
     """
     def __init__(self, debug=False):
+        self.debug_is_enabled = debug
 
-        self._verbose = debug
-        self._show_transitions = False
+        self._graph = networkx.Graph()
 
-        self.n_vertices = 0
-        self.graph = networkx.Graph()
-        self.initialise()
+        self._initialise_agents()
+
+        self._initialise_graph()
+
+        # TODO:
+        # self._initialise_agents_in_graph()
+
+    def _locate_agennts_in_graph(self):
+        # find agents next node
+        # 
+        pass
+
 
     def _is_explored(self, state, control):
         return StateControl(state, control) in self.edge_collection.keys()
-
-    def _initialise_railway(self):
-        """ Defines all railway coordinates with unique railway ID. """
-        env_railway = numpy.nonzero(self.grid)
-        id_railway = -1
-        for r, c in zip(*env_railway):
-            id_railway += 1
-            coordinate = Coordinate(r, c)
-            CoordinateContainer(id_railway, coordinate)
 
     def _reverse_edge_ingress_states(self, path):
         """ Return all states that led to edge from reversed direction. """
@@ -514,7 +549,7 @@ class MyGraph(Utils):
         """ Find all states at coordinate that lead to the same edge. """
         return self.states[state].coc.direction2states[direction]
 
-    def _find_edge_path(self, ingress_states):
+    def _find_edge_path(self, ingress_states, edge_container_id):
         """ Return List of StateControl for state and control.
 
             Note:
@@ -528,6 +563,7 @@ class MyGraph(Utils):
         path.append(StateControl(state, control))
 
         while not self.states[state].type & StateType.NODE:
+            self.states[state].edges.append(edge_container_id)
             n_path += 1
             control = self.states[state].controls[0]
             path.append(StateControl(state, control))
@@ -568,30 +604,49 @@ class MyGraph(Utils):
                 # Forward edges
                 direction = control.direction
                 ingress_states = self._edge_ingress_states(node.state, direction)
-                path = self._find_edge_path(ingress_states)
+                path = self._find_edge_path(ingress_states, edge_container_id)
                 edges = self._define_edges_from_path(ingress_states, path)
-                edge_container.add_forward_edges(edges)
+                edge_container.add_path_states(ingress_states, path)
+                edge_container.add_edges(edges)
 
                 # Backward edges
                 ingress_states = self._reverse_edge_ingress_states(path)
-                path = self._find_edge_path(ingress_states)
+                path = self._find_edge_path(ingress_states, edge_container_id)
                 edges = self._define_edges_from_path(ingress_states, path)
-                edge_container.add_backward_edges(edges)
+                edge_container.add_path_states(ingress_states, path, backward=True)
+                edge_container.add_edges(edges, backward=True)
 
                 self.edges[edge_container_id] = edge_container
+            node.edges.append(edge_container_id)
 
-    def _connect_targets(self):
-        """ To be done. """
-        # get agent initial position
-        # get agent min max speeds
-        # get agent_id
-        # add to self.agents[id]
-        pass
+    def _initialise_railway(self):
+        """ Defines all railway coordinates with unique railway ID. """
+        env_railway = numpy.nonzero(self.grid)
+        id_railway = -1
+        for r, c in zip(*env_railway):
+            id_railway += 1
+            coordinate = Coordinate(r, c)
+            CoordinateContainer(id_railway, coordinate)
 
-    def initialise(self):
+    def _initialise_graph(self):
         self._initialise_railway()
         self._initialise_edges()
-        self._connect_targets()
+
+    def _initialise_agents(self):
+        """ Parse flatland metrics from agents. """
+        for agent_id, agent in enumerate(self.env.agents):
+            self.agents[agent_id] = AgentContainer(agent_id, agent)
+
+    def shortest_path(self, agent_id):
+        """ Update agent states from flatland environment. 
+
+            Todo:
+                - Define custom observation that returns 
+                    dict[id] = States(r, c, d)
+        """
+        # get target states
+        # get current state (next_vertex
+        pass
 
 
 
@@ -602,5 +657,6 @@ if __name__ == "__main__":
 
     for step in range(500):
         env.step(dict((a,0) for a in range(env.get_num_agents())))
+
     env_renderer.render_env(show=True, show_predictions=False, show_observations=False)
     input('press to close')
