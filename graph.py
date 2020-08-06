@@ -354,7 +354,6 @@ class AgentContainer(GlobalContainer):
         (r, c) = a.initial_position
         d = a.initial_direction
         self.state = State(r, c, d)
-        #self.sc = self.states[self.state]
 
         # Note: initialised in graph (locate_agents_in_graph)
         self.target = Coordinate(*agent.target)
@@ -384,9 +383,9 @@ class AgentContainer(GlobalContainer):
 
     def locate(self):
         """ Find next search node and update heuristics if on edge. """
-        sc = self.states[self.state]
-        if not sc.type & StateType.NODE:
-            edge_container_id = sc.edges[0]
+        state_container = self.states[self.state]
+        if not state_container.type & StateType.NODE:
+            edge_container_id = state_container.edges[0]
             edge_container = self.edges[edge_container_id]
             edge_direction = edge_container.path_states[self.state]
             goal_state = edge_container.goal_state[edge_direction]
@@ -403,25 +402,19 @@ class AgentContainer(GlobalContainer):
                 continue
             control = self.states[state].traverse[path[idx+1]]
             edge_path = self.edge_collection[StateControl(state, control)].path
-            #print(edge_path)
-            #print([e.control.control for e in edge_path])
-            #raise RuntimeError()
             self.heuristic.update(edge_path)
             self.heuristic.update([(state, control)])
-            print(self.heuristic)
-            print([h.control for h in self.heuristic.values()])
-            #raise RuntimeError()
 
     def update(self):
         """ Update agent state with flatland environment state. """
+        import flatland
+        if not self._agent.status == flatland.envs.agent_utils.RailAgentStatus.ACTIVE:
+            return
         a = self._agent
         d = a.direction
         (r, c) = a.position
         d = a.direction
-        #(r, c) = a.initial_position
-        #d = a.initial_direction
         self.state = State(r, c, d)
-        #self.sc = self.states[self.state]
 
 
 class AgentTraverse(GlobalContainer):
@@ -710,21 +703,22 @@ class MyGraph(Utils):
                 print('Agent{} : {}s'.format(agent_id, time.time() - timestamp))
                 break
             except networkx.NetworkXNoPath as e:
-                print(e, '\nxxx - Target: ', target)
-                eoau
-                continue
+                print(e, '\n\txxx - Target: ', target)
 
     # NOTE: Final placement under rollout.py
     def controls(self):
         controls = dict()
         for agent in self.agents.values():
-            try:
-                agent.update()
-                print(agent.state)
-                controls[agent.id] = agent.heuristic[agent.state].control
-            except Exception as e:
-                print('FALIED', e)
-                controls[agent.id] = Control.F
+            import flatland
+            AgentType = flatland.envs.agent_utils.RailAgentStatus
+            print(AgentType(agent._agent.status))
+            print(agent.state)
+            sc = self.states[agent.state]
+            print('Available control:')
+            print(sc.controls)
+            controls[agent.id] = agent.heuristic[agent.state].control
+            # print('FALIED', e)
+            # controls[agent.id] = Control.F
         return controls
 
     def update(self):
