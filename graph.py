@@ -242,7 +242,7 @@ class CoordinateContainer(Utils):
             Coordinate metrics should be accessible based on States
             -> e.g. direction based controls
     """
-    def __init__(self, ID, coordinate, debug_is_enabled=True):
+    def __init__(self, ID, coordinate, debug_is_enabled=False):
         self.id = ID
         self.coordinate = coordinate
 
@@ -349,8 +349,10 @@ class AgentContainer(GlobalContainer):
         self._agent = agent
         self.state : State = None
         self.sc : StateContainer = None
+
         self.target = Coordinate(*agent.target)
         self.targets[self.target] = None
+
 
         # TODO: when initialised?
         # Agent specific goal states that satisfy target coordinate
@@ -431,7 +433,7 @@ class EdgeContainer(GlobalContainer):
         self.goal_state = dict()
         # DirectionType key and common path values (2 entries)
         self.path = dict()
-        # State keys and direction_type values
+        # State keys and EdgeDirection values
         self.path_states = dict()
 
         self._forward = dict()
@@ -532,10 +534,10 @@ class MyGraph(Utils):
         self._graph = networkx.Graph()
 
         self._initialise_agents()
-
         self._initialise_graph()
 
     def _locate_agents_in_graph(self):
+        self.update()
         for agent in self.agents.values():
             agent.locate()
 
@@ -653,6 +655,20 @@ class MyGraph(Utils):
         # get target states
         # get current state (next_vertex
         pass
+
+    def update(self):
+        """ Update each agent with most recent flatland states. """
+        for agent in self.agents.values():
+            agent.update()
+
+    def visualise(self, env_renderer):
+        states = list()
+        for agent in self.agents.values():
+            print(agent)
+            print(agent.state)
+            states.append(agent.state)
+        import display
+        display.show_states(env_renderer, states)
 
 
 
