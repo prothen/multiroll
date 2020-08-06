@@ -76,7 +76,8 @@ class StateType(enum.IntEnum):
     INTERSECTION = 3
     VERTEX = 5
 
-class EdgeType(enum.IntEnum):
+
+class EdgeDirection(enum.IntEnum):
     FORWARD = 1
     BACKWARD = -1
 
@@ -84,22 +85,6 @@ class EdgeType(enum.IntEnum):
 Tests = [[Control.L, -1],
          [Control.F, 0],
          [Control.R, 1]]
-
-
-# Plot related
-Transition2Color = dict()
-Transition2Color[Direction.N] = 'r'
-Transition2Color[Direction.E] = 'r'
-Transition2Color[Direction.S] = 'r'
-Transition2Color[Direction.W] = 'r'
-
-
-# Plot related
-Direction2Target = dict()
-Direction2Target[Direction.N] = [-1, 0]
-Direction2Target[Direction.E] = [0, 1]
-Direction2Target[Direction.S] = [1, 0]
-Direction2Target[Direction.W] = [1, -1]
 
 
 FlipDirection = dict()
@@ -366,6 +351,8 @@ class AgentContainer(GlobalContainer):
         self.sc : StateContainer = None
         self.target = Coordinate(*agent.target)
         self.targets[self.target] = None
+
+        # TODO: when initialised?
         # Agent specific goal states that satisfy target coordinate
         self.tc : StateContainer = None
         self.target_edges = list()
@@ -383,6 +370,15 @@ class AgentContainer(GlobalContainer):
         self.update()
         self.target_container = self.railway(self.target)
         self._targets = self.target_container.valid_states
+
+    def locate(self):
+        if len(self.edges) == 1:
+            edge = self.sc.edges[0]
+            edge_direction = edge.path_states[self.state]
+            goal_state = edge.goal_state[edge_direction]
+            self.heuristic.update(**edge.path[edge_direction])
+            self.search_start_node = edge.goal_state[edge_direction]
+        self.search_start_node = self.state
 
     def update(self):
         """ Update agent container through its referenced flatland object. """
@@ -431,7 +427,11 @@ class EdgeContainer(GlobalContainer):
         self.vote = 0
         self.active_agents = dict()
 
-        # TODO: convenience dict to locate states (remove if time sensitive)
+        # EdgeDirection key with goal_state value
+        self.goal_state = dict()
+        # DirectionType key and common path values (2 entries)
+        self.path = dict()
+        # State keys and direction_type values
         self.path_states = dict()
 
         self._forward = dict()
@@ -447,6 +447,11 @@ class EdgeContainer(GlobalContainer):
     def _is_forward(self):
         return self.vote > 0
 
+    def _get_direction(self, backward):
+        """ Return the EdgeDirection for backward argument. """
+        return (EdgeDirection.BACKWARD if backward
+                else EdgeDirection.FORWARD)
+
     def get_edges(self, voted=True):
         if voted:
             if self._is_forward:
@@ -456,26 +461,30 @@ class EdgeContainer(GlobalContainer):
 
     def add_edges(self, edges, backward=False):
         target_dict = (self._backward if backward else self._forward)
-        direction_type = (EdgeType.BACKWARD if backward
-                          else EdgeType.FORWARD)
+        edge_direction = self._get_direction(backward)
         for edge in edges:
             target_dict[edge.pair.vertex_1] = edge
-            self._edge_direction[edge.pair.vertex_1] = direction_type
+            self._edge_direction[edge.pair.vertex_1] = edge_direction
 
-    def add_path_states(self, ingress_states, path, backward=False):
+    def add_path(self, path, backward=False):
+        """ Store common path in attribute according to EdgeDirection. """
+        edge_direction = self._get_direction(backward)
+        self.goal_state[edge_direction] = path.pop()
+        self.path[edge_direction] = path
+
+    def add_states(self, ingress_states, path, backward=False):
         """ Add direction encocding for state entries"""
-        direction_type = (EdgeType.BACKWARD if backward
-                          else EdgeType.FORWARD)
+        edge_direction = self._get_direction(backward)
         for state in ingress_states.keys():
-            self.path_states[state] = direction_type
+            self.path_states[state] = edge_direction
         for path_state_control in path:
-            self.path_states[path_state_control.state] = direction_type
+            self.path_states[path_state_control.state] = edge_direction
 
     def vote(self, state, agent):
         """ Register interest to use an edge in certain direction. """
-        direction_type = self._edge_direction[state]
-        self.vote += direction_type
-        self._agent_registry[direction_type] = agent_id
+        edge_direction = self._edge_direction[state]
+        self.vote += edge_direction
+        self._agent_registry[edge_direction] = agent_id
 
     def get_vote_affected_agents(self):
         """ Return all minority agent_ids from edge. """
@@ -526,14 +535,9 @@ class MyGraph(Utils):
 
         self._initialise_graph()
 
-        # TODO:
-        # self._initialise_agents_in_graph()
-
-    def _locate_agennts_in_graph(self):
-        # find agents next node
-        # 
-        pass
-
+    def _locate_agents_in_graph(self):
+        for agent in self.agents.values():
+            agent.locate()
 
     def _is_explored(self, state, control):
         return StateControl(state, control) in self.edge_collection.keys()
@@ -606,14 +610,15 @@ class MyGraph(Utils):
                 ingress_states = self._edge_ingress_states(node.state, direction)
                 path = self._find_edge_path(ingress_states, edge_container_id)
                 edges = self._define_edges_from_path(ingress_states, path)
-                edge_container.add_path_states(ingress_states, path)
+                edge_container.add_states(ingress_states, path)
                 edge_container.add_edges(edges)
 
                 # Backward edges
                 ingress_states = self._reverse_edge_ingress_states(path)
                 path = self._find_edge_path(ingress_states, edge_container_id)
                 edges = self._define_edges_from_path(ingress_states, path)
-                edge_container.add_path_states(ingress_states, path, backward=True)
+                edge_container.add_path(path, backward=True)
+                edge_container.add_states(ingress_states, path, backward=True)
                 edge_container.add_edges(edges, backward=True)
 
                 self.edges[edge_container_id] = edge_container
@@ -631,6 +636,7 @@ class MyGraph(Utils):
     def _initialise_graph(self):
         self._initialise_railway()
         self._initialise_edges()
+        self._locate_agents_in_graph()
 
     def _initialise_agents(self):
         """ Parse flatland metrics from agents. """
