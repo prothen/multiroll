@@ -156,11 +156,6 @@ class GlobalContainer(object):
     priority_dict = dict([(p, dict()) for p in Priority])
 
     @classmethod
-    def _update_env(cls):
-        global env
-        cls.set_env(env)
-
-    @classmethod
     def set_env(cls, env_arg):
         cls.env = env_arg
         cls.grid = cls.env.rail.grid
