@@ -81,10 +81,9 @@ if __name__ == "__main__":
     g = graph.MyGraph()
     print('Graph creation completed!\n\t--> {}s'.format(time.time()-t0))
     for step in range(500):
-        input('Next step?')
-        print(step)
+        print('It', step)
         controls = g.controls()
-        print(controls)
+        print('Selected control:', controls)
         env.step(controls)
         g.update()
         g.visualise(env_renderer)
@@ -93,6 +92,7 @@ if __name__ == "__main__":
                 show_agents=True, 
                 show_predictions=False, 
                 show_observations=False)
+        input('Continue?')
 
     env_renderer.render_env(
             show=True, 

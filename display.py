@@ -64,6 +64,11 @@ def show_agents(env_renderer, agents):
 
         env_renderer.gl.scatter(*(state.c, -state.r), color=Color.STATE, layer=1, marker="o", s=Dimension.STATE)
         env_renderer.gl.scatter(*(target.c, -target.r), color=Color.TARGET, layer=1, marker="o", s=Dimension.TARGET)
+        env_renderer.render_env(
+                show=True, 
+                show_agents=True, 
+                show_predictions=False, 
+                show_observations=False)
 
 def show_states(env_renderer, states):
     """ Show states defined in StatesContainer through Flatland env_renderer. 
