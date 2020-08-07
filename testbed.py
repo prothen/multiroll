@@ -27,6 +27,14 @@ import graph
 import display
 import observation
 
+DEBUG = False
+H = 50
+W = 50
+N_AGENTS = 100
+N_CITIES = 4
+SEED = 14
+STEP_ACTIVE = False
+PLOT_STEPS = 20
 
 
 numpy.random.seed(1)
@@ -44,17 +52,17 @@ ratios = {1.: 0.25,
 gen_schedule = sparse_schedule_generator({1:1})
 
 env = RailEnv(
-        width=50,
-        height=50,
+        width=H,
+        height=W,
         rail_generator=sparse_rail_generator(
-            max_num_cities=4,
-            seed=14,
+            max_num_cities=N_CITIES,
+            seed=SEED,
             grid_mode=False,
             max_rails_between_cities=2,
             max_rails_in_city=2,
             ),
         schedule_generator=gen_schedule,
-        number_of_agents=2,
+        number_of_agents=N_AGENTS,
         #malfunction_generator_and_process_data=malfunction_from_params(
         #    params_malfunction),
         obs_builder_object=GlobalObsForRailEnv(),
@@ -70,23 +78,44 @@ env_renderer = RenderTool(env,
                           screen_height=1080,
                           screen_width=1920)
 
+import time
+timestamp = time.time()
+
+def start_timeme():
+    global timestamp
+    timestamp = time.time()
+    
+def timeme(message):
+    global timestamp
+    print(message, '\n\t({:4}s)'.format(time.time() - timestamp))
+    timestamp = time.time()
 
 if __name__ == "__main__":
+    timeme('start')
     env.reset()
     env_renderer.reset()
+    timeme('RESET: ')
     print('##Testbed: Instantiate MyGraph.')
-    t0 = time.time()
+
     graph.set_env(env)
-    g = graph.MyGraph(debug_is_enabled=True)
-    print('##Testbed: Graph initialised! ({:.4}s)'.format(time.time()-t0))
+    g = graph.MyGraph(debug_is_enabled=DEBUG)
+    timeme('Graph Setup: ')
+    #print('##Testbed: Graph initialised! ({:.4}s)'.format(time.time()-t0))
     for step in range(500):
         print('##IT', step)
+        start_timeme()
         controls = g.controls()
-        print('##Testbed: Apply controls:\n', controls)
+        timeme('Graph Controls: ')
+        #print('##Testbed: Apply controls:\n', controls)
         env.step(controls)
+        timeme('Env step: ')
         g.update_agent_states()
-        g.visualise(env_renderer)
-        input('## --> Continue?')
+        timeme('Graph Update agents: ')
+        if not step % PLOT_STEPS:
+            g.visualise(env_renderer)
+        timeme('Graph visualise: ')
+        if STEP_ACTIVE:
+            input('## --> Continue?')
 
     g.visualise(env_renderer)
     env_renderer.gl.show()
