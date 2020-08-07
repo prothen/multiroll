@@ -1,5 +1,7 @@
 #!/bin/env python
 
+import flatland
+
 from constants import *
 from framework import *
 from coordinate import *
@@ -53,6 +55,7 @@ class AgentContainer(Utils):
         # import math; self.speed = math.ceil(1/speed)
         self.path = list()
         self.path_edge_containers = list()
+        self.path_edge_container_ids = dict()
         self.path_nodes = list()
         self.heuristic = dict()
 
@@ -125,7 +128,9 @@ class AgentContainer(Utils):
             control = self.states[node].traverse[path[idx+1]]
             edge = self.edge_collection[StateControl(node, control)]
             edge_path = edge.path
-            self.path_edge_containers.append(self.edges[edge.container_id])
+            edge_container = self.edges[edge.container_id]
+            self.path_edge_containers.append(edge_container)
+            self.path_edge_container_ids[edge.container_id] = edge_container
             self.heuristic.update(edge_path)
             self.heuristic.update([(node, control)])
             self.status = AgentStatus.FEASIBLE_PATH
