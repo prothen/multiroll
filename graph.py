@@ -30,11 +30,11 @@ from typing import Optional
 Coordinate = collections.namedtuple('Coordinate', ['r', 'c'])
 # Defines a state with its row column and direction
 State = collections.namedtuple('State', ['r', 'c', 'd'])
-# Defines a state with its row column and direction
+# Defines the tuple of both the control and its corresponding direction (state-dependent)
 ControlDirection = collections.namedtuple('ControlDirection', ['control', 'direction'])
-# Defines a state control tuple to track of exploration
+# Defines a state control tuple where control is a ControlDirection type (track duplicate EdgeCreation)
 StateControl = collections.namedtuple('State', ['state', 'control'])
-# Store a pair of vertices
+# Store a pair of nodes for condensed edge creation
 Pair = collections.namedtuple('Pair', ['vertex_1', 'vertex_2'])
 # Define an edge with path priority of goal traversibility and its collective container
 Edge = collections.namedtuple('Edge', ['pair', 'priority', 'path', 'length', 'container_id'])
