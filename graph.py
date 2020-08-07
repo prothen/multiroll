@@ -443,20 +443,14 @@ class AgentContainer(Utils):
             edge_container_id = state_container.edges[0]
             edge_container = self.edges[edge_container_id]
             edge_direction = edge_container.state2direction[self.state]
-            print('Edge direction initialised: {}'.format(edge_direction))
-            print('On Edge container: {}'.format(edge_container_id))
 
             edge_container.force_vote(edge_direction, self)
             goal_state = edge_container.goal_state[edge_direction]
             self.heuristic.update(edge_container.path[edge_direction])
             self.current_node = edge_container.goal_state[edge_direction]
             self.path_edge_containers.append(edge_container)
-            # NOTE: remove debug for production
-            #print(self.id, ' Has heuristic since on EDGE')
-            #print(self.edge_container_ids())
-            #print(self.state)
-            #print(self.path_edge_containers[0].state2progress[self.state])
-            #eau
+            print('Edge direction initialised: {}'.format(edge_direction))
+            print('On Edge container: {}'.format(edge_container_id))
             return
         self.current_node = self.state
 
@@ -474,10 +468,6 @@ class AgentContainer(Utils):
         for idx, node in enumerate(path):
             if idx == len(path)-1:
                 continue
-            print('from: ', node)
-            print('to: ', path[idx+1])
-            print('show all states accessible')
-            print(self.states[node].traverse)
             control = self.states[node].traverse[path[idx+1]]
             edge = self.edge_collection[StateControl(node, control)]
             edge_path = edge.path
@@ -485,8 +475,6 @@ class AgentContainer(Utils):
             self.heuristic.update(edge_path)
             self.heuristic.update([(node, control)])
             self.status = AgentStatus.FEASIBLE_PATH
-            print('converted successfully!')
-            # raise RuntimeError()
 
     def vote_edges(self):
         for edge_container_id, node in zip(self.edge_container_ids(),
@@ -523,27 +511,21 @@ class AgentContainer(Utils):
 
     def set_control(self, controls):
         """ Update control dictionary and update active linked edge_containers"""
-        # TODO: check if has a heuristic and path
-        #       -> otherwise DO not departure
+        import time
+        timestamp = time.time()
         import flatland
+        print(timestamp - time.time())
+        print('Done with import')
         if not self.status == AgentStatus.FEASIBLE_PATH:
-            print('ID: ', self.id, ' TRIGGER emergency stop.')
+            print('ID: ', self.id, ' No Path: Stopping!')
             controls[self.id] = Control.S
             return
         print('Agent{}: '.format(self.id), '\nPath-IDs:{}'.format(self.edge_container_ids()))
         controls[self.id] = self.heuristic[self.state].control
         AgentType = flatland.envs.agent_utils.RailAgentStatus
         sc = self.states[self.state]
-        # TODO: update current edge progress every step
-        print('ETA:', self.update_edge_progress())
-        print(AgentType(self._agent.status))
-        #print(self.state)
-        #print('Available control:')
-        #print(sc.controls)
-        return 
-        controls[agent.id] = agent.heuristic[agent.state].control
-        # print('FALIED', e)
-        # controls[agent.id] = Control.F
+        self.update_edge_progress()
+        return
 
 
 class AgentTraverse(GlobalContainer):
@@ -558,6 +540,16 @@ class AgentTraverse(GlobalContainer):
         self.edge = edge
         self.speed = self.agent.speed
 
+class VoteStatus(enum.IntEnum):
+    # No votes submitted
+    NONE = 0
+    # Votes received and either pending or elected (in graph)
+    ELECTED = 1
+    # Votes received and some prioritisation is expected
+    VOTED = 2
+    # No votes received and all edges are to be returned
+    UNVOTED = 4
+
 
 class EdgeContainer(Utils):
     """ Edge related metrics and occupancy trackers.
@@ -566,6 +558,13 @@ class EdgeContainer(Utils):
             Set default debug_is_enabled=None to fetch
             global debug_mode and set to True to activate
             debug for all EdgeContainers.
+
+        Note:
+            After vote evaluation edge dict references are added to
+            edge_action under EdgeActionType key.
+            The entries are then fetched using get_edge_updates(),
+            which is conditioned on note(self.vote_status & ELECTED) and
+            on completion sets | VoteStatus.ELECTED
 
         Todo:
             1.
@@ -583,9 +582,11 @@ class EdgeContainer(Utils):
     """
     def __init__(self, ID, debug_is_enabled=True):
         self.id = ID
-        self.vote = 0
         self.active_agents = dict()
         self.switch_debug_mode(debug_is_enabled)
+
+        self.vote = 0
+        self.vote_status : VoteStatus = VoteStatus.UNVOTED
 
         # EdgeDirection key with goal_state value
         self.goal_state = dict()
@@ -594,93 +595,100 @@ class EdgeContainer(Utils):
         # State keys and EdgeDirection values
         self.length = None
 
-        self._forward = dict()
-        self._backward = dict()
         # store forward and backward edges under EdgeDirection Key
         self._edge_registry = dict()
+        # collection of container edges with key being EdgeDirection
+        self._edges = dict([(None, self._edge_registry)])
 
         self._edge_direction = dict()
         self._agent_registry = dict()
+        self._edge_actions = dict()
 
         self.state2progress = dict()
-        # NOTE: dev dict: remove for production
+        # State to edge direction for container
+        # NOTE: Allows to localise agent through
+        #       StatesContainer -> EdgeContainer.id -> .state2direction
         self.state2direction = dict()
 
     def _reset_vote(self):
         """ Reset vote and allow all edge directions to be used. """
         self.vote = 0
-        self.voted = False
+        self.vote_status = VoteStatus.UNVOTED
 
-    def _is_forward(self):
-        return self.vote >= 0
+    def _vote_result(self):
+        """ Return None for unvoted or undecided. """
+        if not self.vote_status == VoteStatus.UNVOTED:
+            if self.vote >= 0:
+                return EdgeDirection.FORWARD
+            return EdgeDirection.BACKWARD
+        return None
 
     def _get_direction(self, backward):
         """ Return the EdgeDirection for backward argument. """
-        return (EdgeDirection.BACKWARD if backward
-                else EdgeDirection.FORWARD)
+        if backward:
+            return EdgeDirection.BACKWARD
+        return EdgeDirection.FORWARD
 
-    def on_direction(self, state):
-        """ Return the direction of the edge for a given state. """
+    def on_edge_direction(self, state):
+        """ Return the direction of the edge for a given state.
+
+            Note:
+                If agent starts on edge it reserves its usage.
+        """
         return self.state2direction[state]
 
-    def get_edges(self, voted=True):
-        """ Return available edges under evaluated vote. """
+    def get_edge_updates(self, edges):
+        """ Return vote preferred edges. """
+        if self._vote_status & VoteStatus.ELECTED:
+            return
+        for action_type, entries in self.edge_action.items():
+            edges[action_type].update(self.edge_action[action_type])
+
+    def get_edges(self, consider_vote=True):
+        """ Return available edges under evaluated vote.
+
+            Note:
+                If no agent has claimed interest, all edges are returned.
+        """
         print('EC{}'.format(self.id), '(Vote{})'.format(self.vote))
-        if voted:
+        if consider_vote and self.vote_status & VoteStatus.VOTED:
+            return self._edges[self.vote_result()]
             if self._is_forward():
                 self.debug('EC-DEBUG: return forward edges')
                 return self._forward.values()
             self.debug('EC-DEBUG: return backward edges')
             return self._backward.values()
         return self._edge_registry.values()
-        # TODO: debug previous and remove subsequent
-        #self.debug('EC-DEBUG: return all edges')
-        #d = dict()
-        #d.update(self._forward)
-        #d.update(self._backward)
-        #return d.values()
-        #return dict(self._forwardself._backward).values()
 
     def add_edges(self, edges, backward=False):
         """ Add edges according to EdgeDirection to dict. """
-        target_dict = (self._backward if backward else self._forward)
+        # TODO: remove subsequent for production
+        # target_dict = (self._backward if backward else self._forward)
         edge_direction = self._get_direction(backward)
         for edge in edges:
-            target_dict[edge.pair.vertex_1] = edge
-            self._edge_direction[edge.pair.vertex_1] = edge_direction
+            # target_dict[edge.pair.vertex_1] = edge
             self._edge_registry[edge.pair.vertex_1] = edge
+            self._edges[edge_direction][edge.pair.vertex_1] = edge
+            self._edge_direction[edge.pair.vertex_1] = edge_direction
 
-    def add_path(self, path, backward=False):
-        """ Store common path in attribute according to EdgeDirection. """
+    def add_states(self, ingress_states, path, backward=False):
+        """ Store common path in attribute according to EdgeDirection.
+
+            Note:
+                The ingress states are a dictionary of keys with states
+                that share the same traversability direction
+                and have values with ControlDirection.
+        """
         edge_direction = self._get_direction(backward)
         self.goal_state[edge_direction] = path[-1].state
         self.path[edge_direction] = path[:-1]
         for progress, StateControl in enumerate(path):
             print(self.id, ': ', StateControl.state)
             self.state2progress[StateControl.state] = progress
-            # NOTE: dev dict -> to be removed for production
             self.state2direction[StateControl.state] = edge_direction
-        self.length = len(path)
-
-    def add_states(self, ingress_states, path, backward=False):
-        """ Add direction encocding for state entries.
-
-            Note:
-                The ingress states are a dictionary of keys with states
-                that share the same traversability direction
-                and have values with ControlDirection.
-
-
-            Note:
-                - All obsolete: only required to add
-                  ingress_states to state2direction
-        """
-        edge_direction = self._get_direction(backward)
-
         for state in ingress_states.keys():
             self.state2direction[state] = edge_direction
-        for path_state_control in path:
-            self.state2direction[path_state_control.state] = edge_direction
+        self.length = len(path)
 
     def parse_agent_vote(self, state, agent):
         """ Register interest to use an edge in certain direction. """
@@ -740,10 +748,18 @@ class EdgeContainer(Utils):
         progress = self.state2progress[state]
         return self.length - progress -1
 
+    # NOTE: move subsquent to __init__
+    def _update_occupancy(self):
+        if len(self.active_agents) == 0:
+            self.vote = 0
+            self.voted = False
+
     def exit(self, agent_id):
         """ Remove agent from active_agents and priority_dict. """
         prio = self.active_agents[agent_id].priority
         self.priority_dict[prio].pop(agent_id, None)
+        self.active_agents.pop(agent_id, None)
+        self._update_occupancy()
         # TODO: reset if last agent left -> indicates that edge can be revoted
 
 
@@ -846,8 +862,7 @@ class MyGraph(Utils):
                 path = self._find_edge_path(ingress_states, edge_container_id)
                 edges = self._define_edges_from_path(ingress_states, path,
                                                      edge_container_id)
-                edge_container.add_path(path, backward=False)
-                edge_container.add_states(ingress_states, path)
+                edge_container.add_states(ingress_states, path, backward=False)
                 edge_container.add_edges(edges, backward=False)
 
                 # Backward edges
@@ -855,7 +870,6 @@ class MyGraph(Utils):
                 path = self._find_edge_path(ingress_states, edge_container_id)
                 edges = self._define_edges_from_path(ingress_states, path,
                                                      edge_container_id)
-                edge_container.add_path(path, backward=True)
                 edge_container.add_states(ingress_states, path, backward=True)
                 edge_container.add_edges(edges, backward=True)
 
@@ -890,7 +904,7 @@ class MyGraph(Utils):
         timestamp = time.time()
         self._graph.clear()
         for edge_container in self.edges.values():
-            edges = edge_container.get_edges(voted=direction_aware)
+            edges = edge_container.get_edges(consider_vote=direction_aware)
             for edge in edges:
                 self._graph.add_edge(*edge.pair, length=edge.length)
         print('Reset graph in {:.4}s'.format(time.time() - timestamp))
@@ -909,7 +923,6 @@ class MyGraph(Utils):
 
     def _update_graph(self):
         """ Update graph by removing outvoted graph. """
-        # TODO: fix unvoted / irregularities etc.
         for edge_container in self.edges.values():
             edges = edge_container.get_edges()
             for edge in edges:
