@@ -108,6 +108,10 @@ class AgentMode(enum.IntEnum):
     ACTIVE = 2
 
 
+class GraphActivity(enum.IntEnum):
+    ZERO = 0
+    AGENT_ACTIVE = 1
+
 Tests = [[Control.L, -1],
          [Control.F, 0],
          [Control.R, 1]]
