@@ -166,8 +166,12 @@ class GlobalContainer(object):
         cls.grid = cls.env.rail.grid
 
 env = None
-# legacy
 def set_env(env_arg):
+    """ Initialise this module with flatland interface.
+
+        Note:
+            This needs to be invoked before any other class usage.
+    """
     global env
     GlobalContainer.set_env(env_arg)
 
@@ -378,19 +382,22 @@ class AgentContainer(Utils):
 
         a = self._agent
         (r, c) = a.initial_position
-        d = a.initial_direction
+        d = Direction(a.initial_direction)
         self.state = State(r, c, d)
         self.status = AgentStatus.INITIALISED
-        #self.status = a.status
 
         # Note: initialised in graph (locate_agents_in_graph)
         self.target = Coordinate(*agent.target)
-        # To be documented
+        # To be documented: Usage and necessity?
         self.target_container = None
         # Add key for this agents target coordinate to global targets
+        # NOTE: Used in decision of CoordinateContainer
+        #       whether coordinate states become nodes
         self.targets[self.target] = None
 
+        # Define possible search nodes for path computation
         self.target_nodes = None
+        # Defines next node available for path decision
         self.current_node = None
 
         # TODO: when initialised?
@@ -402,12 +409,18 @@ class AgentContainer(Utils):
         # import math; self.speed = math.ceil(1/speed)
         self.path = list()
         self.path_edge_containers = list()
+        # NOTE: LEGACY -> ids can be easily retrieved through container directly
         self.path_edge_container_ids = list()
         self.path_nodes = list()
         self.heuristic = dict()
 
     def initialise(self):
-        """ Fetch current states and update targets. """
+        """ Fetch current states and update targets.
+
+            Note:
+                Called after MyGraph has initialised railway.
+
+        """
         #self.update()
         self.target_container = self.railway[self.target]
         self.target_nodes = self.target_container.valid_states
@@ -428,6 +441,13 @@ class AgentContainer(Utils):
             goal_state = edge_container.goal_state[edge_direction]
             self.heuristic.update(edge_container.path[edge_direction])
             self.current_node = edge_container.goal_state[edge_direction]
+            self.path_edge_containers.append(edge_container)
+            # NOTE: remove debug for production
+            #print(self.id, ' Has heuristic since on EDGE')
+            #print(self.edge_container_ids())
+            #print(self.state)
+            #print(self.path_edge_containers[0].state2progress[self.state])
+            #eau
             return
         self.current_node = self.state
 
@@ -466,11 +486,32 @@ class AgentContainer(Utils):
         a = self._agent
         d = a.direction
         (r, c) = a.position
-        d = a.direction
+        d = Direction(a.direction)
         self.state = State(r, c, d)
         # self.status = i.status
 
+    # NOTE: move subsequent to __init__
+    def edge_container_ids(self):
+        return [e.id for e in self.path_edge_containers]
+    
+    # NOTE: Dev - remove for production
+    def transition(self):
+        self.path_edge_containers[0].eta
+
+    def update_edge_progress(self):
+        """ Return the amount of cells remaining after current state. """
+        # TODO: trigger unregister event on edge_container and register event
+        print('state: ', self.state)
+        print(self.edge_container_ids())
+        print(self.path_edge_containers[0].state2progress)
+        eta = self.path_edge_containers[0].update_agent_progress(self.id, self.state)
+        if eta == 0:
+            self.path_edge_containers.pop(0)
+            self.path_edge_container_ids.pop(0)
+        return eta
+
     def set_control(self, controls):
+        """ Update control dictionary and update active linked edge_containers"""
         # TODO: check if has a heuristic and path
         #       -> otherwise DO not departure
         import flatland
@@ -478,10 +519,12 @@ class AgentContainer(Utils):
             print('ID: ', self.id, ' TRIGGER emergency stop.')
             controls[self.id] = Control.S
             return
-        print('Agent{}: '.format(self.id), '{}'.format(self.path_edge_container_ids))
+        print('Agent{}: '.format(self.id), '{}'.format(self.edge_container_ids()))
         controls[self.id] = self.heuristic[self.state].control
         AgentType = flatland.envs.agent_utils.RailAgentStatus
         sc = self.states[self.state]
+        # TODO: update current edge progress every step
+        print('ETA:', self.update_edge_progress())
         print(AgentType(self._agent.status))
         print(self.state)
         print('Available control:')
@@ -539,6 +582,7 @@ class EdgeContainer(Utils):
         self.path = dict()
         # State keys and EdgeDirection values
         self.path_states = dict()
+        self.length = None
 
         self._forward = dict()
         self._backward = dict()
@@ -547,6 +591,8 @@ class EdgeContainer(Utils):
 
         self._edge_direction = dict()
         self._agent_registry = dict()
+
+        self.state2progress = dict()
 
     def reset_vote(self):
         """ Reset vote and allow all edge directions to be used. """
@@ -569,7 +615,8 @@ class EdgeContainer(Utils):
                 return self._forward.values()
             self.debug('EC-DEBUG: return backward edges')
             return self._backward.values()
-        return self.edge_registry.values()
+        return self._edge_registry.values()
+        # TODO: debug previous and remove subsequent
         #self.debug('EC-DEBUG: return all edges')
         #d = dict()
         #d.update(self._forward)
@@ -584,7 +631,7 @@ class EdgeContainer(Utils):
         for edge in edges:
             target_dict[edge.pair.vertex_1] = edge
             self._edge_direction[edge.pair.vertex_1] = edge_direction
-            self.edge_registry[edge.pair.vertex_1] = edge
+            self._edge_registry[edge.pair.vertex_1] = edge
 
     def add_path(self, path, backward=False):
         """ Store common path in attribute according to EdgeDirection. """
@@ -592,7 +639,9 @@ class EdgeContainer(Utils):
         self.goal_state[edge_direction] = path[-1].state
         self.path[edge_direction] = path[:-1]
         for progress, StateControl in enumerate(path):
-            self.state2pathprogress[StateControl.state] = progress
+            print(self.id, ': ', StateControl.state)
+            self.state2progress[StateControl.state] = progress
+        self.length = len(path)
 
     def add_states(self, ingress_states, path, backward=False):
         """ Add direction encocding for state entries"""
@@ -649,19 +698,10 @@ class EdgeContainer(Utils):
         self.priority_dict[edge.priority][agent_id] = agent_container
 
     # NOTE: Development: Test function
-    def transition(self, agent_id, state):
-        progress = self.state2progress(state)
-        print('EDGECONTAINER {} with CELLID{}'.format(self.id, progress))
-        # get agent
-        # if cell_id -> 0 -> trigger enter
-        # cell_id =  state2path
-        # if cell_id -> trigger exit
-        #   on exit -> trigger agent.next_edge
-        #       -> remove from left from path_edge_container_ids
-        #TODO; if last path element (before goal)
-        # -> pop edge_id
-        pass
-
+    def update_agent_progress(self, agent_id, state):
+        """ Update agent_id edge progress and return eta in cell count. """
+        progress = self.state2progress[state]
+        return self.length - progress -1
 
     def exit(self, agent_id):
         """ Remove agent from active_agents and priority_dict. """
@@ -852,22 +892,28 @@ class MyGraph(Utils):
         """ Update heuristic for agent with agent_id. """
         import time
         agent = self.agents[agent_id]
+        def agent_text():
+            return 'Agent{0}: '.format(agent_id), agent.status,
         current = agent.current_node
         timestamp = time.time()
         for target in agent.target_nodes.keys():
             try:
                 sp = self._shortest_path(current, target)
                 agent.update_path(sp)
-                self.debug('Agent{0}: '.format(agent_id), agent.status,
-                           'Successful path computation',
-                           '({:.4}s)'.format(time.time() - timestamp))
+                debug_message = 'SUCCESS! '
+                debug_message += '{} '.format(target)
+                debug_message += '({:.4}s)'.format(time.time() - timestamp)
+                self.debug(agent_text(), debug_message)
                 return
             except (networkx.exception.NodeNotFound, networkx.NetworkXNoPath) as e:
                 # TODO: consider that agent might be able to use 
                 #       existing heuristic as path
-                self.debug('Agent{}:'.format(agent_id), ' Errored in path computation! \n\t', e)
-        agent.status = AgentStatus.INFEASIBLE_PATH
-        self.debug('Agent{0} :'.format(agent_id), agent.status, 'Total failure of path comptutaion.', '({:.4}s)'.format(time.time() - timestamp))
+                agent.status = AgentStatus.INFEASIBLE_PATH
+                self.debug(agent_text(), ' ERROR! \n\t', e)
+        debug_message = 'Total failure of path comptutation! '
+        debug_message += '{} '.format(target)
+        debug_message += '({:.4}s)'.format(time.time() - timestamp)
+        self.debug(agent_text(), agent.status, debug_message)
 
     # NOTE: Final placement under rollout.py
     def controls(self):
