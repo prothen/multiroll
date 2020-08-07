@@ -36,7 +36,7 @@ ControlDirection = collections.namedtuple('ControlDirection', ['control', 'direc
 StateControl = collections.namedtuple('State', ['state', 'control'])
 # Store a pair of vertices
 Pair = collections.namedtuple('Pair', ['vertex_1', 'vertex_2'])
-# Define an edge with its corresponding feed_forward control (autopilot until next intersection)
+# Define an edge with path priority of goal traversibility and its collective container
 Edge = collections.namedtuple('Edge', ['pair', 'priority', 'path', 'length', 'container_id'])
 
 
@@ -401,6 +401,7 @@ class AgentContainer(Utils):
         # speed = a.speed_data['speed']
         # import math; self.speed = math.ceil(1/speed)
         self.path = list()
+        self.path_edge_containers = list()
         self.path_edge_container_ids = list()
         self.path_nodes = list()
         self.heuristic = dict()
@@ -431,7 +432,13 @@ class AgentContainer(Utils):
         self.current_node = self.state
 
     def update_path(self, path):
-        """ Use path with list of nodes to receive agent heuristics. """
+        """ Use path with list of nodes to receive agent heuristics.
+
+            Note:
+                Path format defined from networkx with corresponding
+                edge node entries.
+
+        """
         self.path_edge_container_ids = list()
         self.path_nodes = path
         for idx, state in enumerate(path):
@@ -440,6 +447,7 @@ class AgentContainer(Utils):
             control = self.states[state].traverse[path[idx+1]]
             edge = self.edge_collection[StateControl(state, control)]
             edge_path = edge.path
+            self.path_edge_containers.append(self.edges[edge.container_id])
             self.path_edge_container_ids.append(edge.container_id)
             self.heuristic.update(edge_path)
             self.heuristic.update([(state, control)])
@@ -583,6 +591,8 @@ class EdgeContainer(Utils):
         edge_direction = self._get_direction(backward)
         self.goal_state[edge_direction] = path[-1].state
         self.path[edge_direction] = path[:-1]
+        for progress, StateControl in enumerate(path):
+            self.state2pathprogress[StateControl.state] = progress
 
     def add_states(self, ingress_states, path, backward=False):
         """ Add direction encocding for state entries"""
@@ -640,12 +650,16 @@ class EdgeContainer(Utils):
 
     # NOTE: Development: Test function
     def transition(self, agent_id, state):
+        progress = self.state2progress(state)
+        print('EDGECONTAINER {} with CELLID{}'.format(self.id, progress))
         # get agent
         # if cell_id -> 0 -> trigger enter
         # cell_id =  state2path
         # if cell_id -> trigger exit
         #   on exit -> trigger agent.next_edge
         #       -> remove from left from path_edge_container_ids
+        #TODO; if last path element (before goal)
+        # -> pop edge_id
         pass
 
 
