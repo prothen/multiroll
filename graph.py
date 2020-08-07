@@ -82,6 +82,25 @@ class EdgeDirection(enum.IntEnum):
     BACKWARD = -1
 
 
+class EdgeActionType(enum.IntEnum):
+    """ Possible edge related actions on graph. """
+    NONE = 0
+    ADD = 1
+    REMOVE = 2
+
+
+class VoteStatus(enum.IntEnum):
+    """ Semantic structuring of voting related states. """
+    # No votes submitted
+    NONE = 0
+    # Votes received and either pending or elected (in graph)
+    ELECTED = 1
+    # Votes received and some prioritisation is expected
+    VOTED = 2
+    # No votes received and all edges are to be returned
+    UNVOTED = 4
+
+
 class AgentStatus(enum.IntEnum):
     NONE = 0
     INITIALISED = 1
@@ -540,23 +559,6 @@ class AgentTraverse(GlobalContainer):
         self.edge = edge
         self.speed = self.agent.speed
 
-class EdgeActionType(enum.IntEnum):
-    """ Possible edge related actions on graph. """
-    NONE = 0
-    ADD = 1
-    REMOVE = 2
-
-class VoteStatus(enum.IntEnum):
-    """ Semantic structuring of voting related states. """
-    # No votes submitted
-    NONE = 0
-    # Votes received and either pending or elected (in graph)
-    ELECTED = 1
-    # Votes received and some prioritisation is expected
-    VOTED = 2
-    # No votes received and all edges are to be returned
-    UNVOTED = 4
-
 
 class EdgeContainer(Utils):
     """ Edge related metrics and occupancy trackers.
@@ -612,7 +614,7 @@ class EdgeContainer(Utils):
         self._edges[EdgeDirection.BACKWARD] = dict()
 
         self._edge_direction = dict()
-        self._agent_registry = dict()
+        self._agent_registry = dict([(e, list()) for e in EdgeDirection])
         self._edge_actions = dict()
 
         # State to cell id relative to edge (edge switch indicator for agent)
@@ -701,6 +703,9 @@ class EdgeContainer(Utils):
         """ Register interest to use an edge in certain direction. 
 
             Note:
+                Subsequent 
+
+            Note:
                 - Add callback to agents that lost election
                 --> On recent trigger lost_dict_i.notify_edge_availability()
                 --> Agent: if is INFEASIBLE_PATH -> cast for recomputation
@@ -711,8 +716,11 @@ class EdgeContainer(Utils):
         ids = agent.edge_container_ids()
         edge_direction = self.state2direction[state]
         self.vote += edge_direction
-        self._agent_registry[edge_direction] = agent.id
-        self.vote_status  = VoteStatus.VOTED
+        self._agent_registry[edge_direction].append(agent.id)
+        # TODO: decide whether
+        self.vote_status  |= VoteStatus.VOTED
+        # TODO: or whether (reset ELECTED implicitly)
+        # self.vote_status  = VoteStatus.VOTED
 
     def get_vote_affected_agents(self):
         """ Return all minority agent_ids from edge. 
