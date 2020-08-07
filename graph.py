@@ -540,7 +540,14 @@ class AgentTraverse(GlobalContainer):
         self.edge = edge
         self.speed = self.agent.speed
 
+class EdgeActionType(enum.IntEnum):
+    """ Possible edge related actions on graph. """
+    NONE = 0
+    ADD = 1
+    REMOVE = 2
+
 class VoteStatus(enum.IntEnum):
+    """ Semantic structuring of voting related states. """
     # No votes submitted
     NONE = 0
     # Votes received and either pending or elected (in graph)
@@ -576,9 +583,11 @@ class EdgeContainer(Utils):
                 global N prediction steps along path length M
                 -> matrix &operator should yield zero for collision free
 
-            3. 
+            3.
                 AgentContainer -> get_control -> update current_edge -> move_agent
                     - If edge exit, select next edge_id from path_id
+
+            4. Voting has matured to a point that deserves a separate object.
     """
     def __init__(self, ID, debug_is_enabled=True):
         self.id = ID
@@ -599,15 +608,16 @@ class EdgeContainer(Utils):
         self._edge_registry = dict()
         # collection of container edges with key being EdgeDirection
         self._edges = dict([(None, self._edge_registry)])
+        self._edges[EdgeDirection.FORWARD] = dict()
+        self._edges[EdgeDirection.BACKWARD] = dict()
 
         self._edge_direction = dict()
         self._agent_registry = dict()
         self._edge_actions = dict()
 
+        # State to cell id relative to edge (edge switch indicator for agent)
         self.state2progress = dict()
-        # State to edge direction for container
-        # NOTE: Allows to localise agent through
-        #       StatesContainer -> EdgeContainer.id -> .state2direction
+        # State to edge direction for container (localise on edge)
         self.state2direction = dict()
 
     def _reset_vote(self):
@@ -629,44 +639,10 @@ class EdgeContainer(Utils):
             return EdgeDirection.BACKWARD
         return EdgeDirection.FORWARD
 
-    def on_edge_direction(self, state):
-        """ Return the direction of the edge for a given state.
-
-            Note:
-                If agent starts on edge it reserves its usage.
-        """
-        return self.state2direction[state]
-
-    def get_edge_updates(self, edges):
-        """ Return vote preferred edges. """
-        if self._vote_status & VoteStatus.ELECTED:
-            return
-        for action_type, entries in self.edge_action.items():
-            edges[action_type].update(self.edge_action[action_type])
-
-    def get_edges(self, consider_vote=True):
-        """ Return available edges under evaluated vote.
-
-            Note:
-                If no agent has claimed interest, all edges are returned.
-        """
-        print('EC{}'.format(self.id), '(Vote{})'.format(self.vote))
-        if consider_vote and self.vote_status & VoteStatus.VOTED:
-            return self._edges[self.vote_result()]
-            if self._is_forward():
-                self.debug('EC-DEBUG: return forward edges')
-                return self._forward.values()
-            self.debug('EC-DEBUG: return backward edges')
-            return self._backward.values()
-        return self._edge_registry.values()
-
     def add_edges(self, edges, backward=False):
         """ Add edges according to EdgeDirection to dict. """
-        # TODO: remove subsequent for production
-        # target_dict = (self._backward if backward else self._forward)
         edge_direction = self._get_direction(backward)
         for edge in edges:
-            # target_dict[edge.pair.vertex_1] = edge
             self._edge_registry[edge.pair.vertex_1] = edge
             self._edges[edge_direction][edge.pair.vertex_1] = edge
             self._edge_direction[edge.pair.vertex_1] = edge_direction
@@ -690,18 +666,53 @@ class EdgeContainer(Utils):
             self.state2direction[state] = edge_direction
         self.length = len(path)
 
+    def on_edge_direction(self, state):
+        """ Return the direction of the edge for a given state.
+
+            Note:
+                If agent starts on edge it reserves its usage.
+        """
+        return self.state2direction[state]
+
+    def get_edge_updates(self, edges):
+        """ Return vote-preferred edges for corresponding actions. 
+
+            Note:
+                Skip already elected edge changes.
+        """
+        if self._vote_status & VoteStatus.ELECTED:
+            return
+        for action_type, entries in self.edge_action.items():
+            edges[action_type].update(self.edge_action[action_type])
+        self._vote_status |= VoteStatus.ELECTED
+
+    def get_edges(self, consider_vote=True):
+        """ Return available edges under evaluated vote.
+
+            Note:
+                If no agent has claimed interest, all edges are returned.
+        """
+        print('EC{}'.format(self.id), '(Vote{})'.format(self.vote))
+        if consider_vote:
+            return self._edges[self._vote_result()]
+        return self._edge_registry.values()
+
     def parse_agent_vote(self, state, agent):
-        """ Register interest to use an edge in certain direction. """
-        print('Agent edge ids:', agent.edge_container_ids())
+        """ Register interest to use an edge in certain direction. 
+
+            Note:
+                - Add callback to agents that lost election
+                --> On recent trigger lost_dict_i.notify_edge_availability()
+                --> Agent: if is INFEASIBLE_PATH -> cast for recomputation
+                          --> TODO: -> MyGraph(), update_edges() -> fetches update_edges
+                          --> TODO: -> MyGraph(), schedule_agent()
+        """
+        print('Agent vote for {}'.format(self.id), '\n\t', agent.edge_container_ids())
         ids = agent.edge_container_ids()
-        #print(agent.state)
-        #print('Progress: {}'.format(self.edges[ids[1]].state2progress[state]))
-        print('success??')
-        # TODO: don't use edge_direction -> use PATH_STATES
-        edge_direction = self.state2direction[state] #self._edge_direction[state]
+        edge_direction = self.state2direction[state]
         self.vote += edge_direction
         self._agent_registry[edge_direction] = agent.id
-        self.voted = True
+        self.vote_status  = VoteStatus.VOTED
 
     def get_vote_affected_agents(self):
         """ Return all minority agent_ids from edge. 
@@ -889,6 +900,12 @@ class MyGraph(Utils):
         """ Initialise networkx graph with all edges.
 
             Note:
+                This method is for clean recreation of complete graph with
+                voted edges.
+
+                It is recommended to rely on _update_graph automation and
+                automated edge reactivation on agent exiting the edge_container.
+
                 Recommended to first run vote edges and update edge_containers
                 to remove deadlocks.
 
@@ -910,11 +927,20 @@ class MyGraph(Utils):
         print('Reset graph in {:.4}s'.format(time.time() - timestamp))
         print(self._graph.edges())
 
+    def schedule_agent_update(self, agent):
+        """ Add agent to list of agents that will attempt to get
+            new feasible path.
+
+            Note:
+                For immediate recomputation use shortest_path(agent).
+        """
+        self.scheduled_agents.append(agent)
+
     def _update_agent_heuristics(self):
         """ Compute shortest path for each agent. """
         for agent in self.agents.values():
             agent.reset_path()
-            self.shortest_path(agent.id)
+            self.shortest_path(agent)
 
     def _conduct_vote(self):
         """ Execute voting on all edges in agent's path. """
@@ -950,12 +976,11 @@ class MyGraph(Utils):
         """ Parse arguments to networkx implementation. """
         return networkx.shortest_path(self._graph, start, goal, 'length')
 
-    def shortest_path(self, agent_id):
+    def shortest_path(self, agent):
         """ Update heuristic for agent with agent_id. """
         import time
-        agent = self.agents[agent_id]
         def agent_text():
-            return 'Agent{0}: '.format(agent_id), agent.status,
+            return 'Agent{0}: '.format(agent.id), agent.status,
         current = agent.current_node
         timestamp = time.time()
         for target in agent.target_nodes.keys():
