@@ -409,8 +409,6 @@ class AgentContainer(Utils):
         # import math; self.speed = math.ceil(1/speed)
         self.path = list()
         self.path_edge_containers = list()
-        # NOTE: LEGACY -> ids can be easily retrieved through container directly
-        self.path_edge_container_ids = list()
         self.path_nodes = list()
         self.heuristic = dict()
 
@@ -424,6 +422,15 @@ class AgentContainer(Utils):
         #self.update()
         self.target_container = self.railway[self.target]
         self.target_nodes = self.target_container.valid_states
+    
+    def reset_path(self):
+        self.heuristic = dict()
+        self.path = list()
+        self.path_edge_containers = list()
+        self.path_nodes = list()
+        self.heuristic = dict()
+        self.status = AgentStatus.INFEASIBLE_PATH
+        self.locate()
 
     def locate(self):
         """ Locate agent in graph and Find next search node.
@@ -435,7 +442,9 @@ class AgentContainer(Utils):
         if not state_container.type & StateType.NODE:
             edge_container_id = state_container.edges[0]
             edge_container = self.edges[edge_container_id]
-            edge_direction = edge_container.path_states[self.state]
+            edge_direction = edge_container.state2direction[self.state]
+            print('Edge direction initialised: {}'.format(edge_direction))
+            print('On Edge container: {}'.format(edge_container_id))
 
             edge_container.force_vote(edge_direction, self)
             goal_state = edge_container.goal_state[edge_direction]
@@ -458,23 +467,29 @@ class AgentContainer(Utils):
                 Path format defined from networkx with corresponding
                 edge node entries.
 
+            Todo:
+                Debug the conversion to edge_ids
         """
-        self.path_edge_container_ids = list()
         self.path_nodes = path
-        for idx, state in enumerate(path):
+        for idx, node in enumerate(path):
             if idx == len(path)-1:
                 continue
-            control = self.states[state].traverse[path[idx+1]]
-            edge = self.edge_collection[StateControl(state, control)]
+            print('from: ', node)
+            print('to: ', path[idx+1])
+            print('show all states accessible')
+            print(self.states[node].traverse)
+            control = self.states[node].traverse[path[idx+1]]
+            edge = self.edge_collection[StateControl(node, control)]
             edge_path = edge.path
             self.path_edge_containers.append(self.edges[edge.container_id])
-            self.path_edge_container_ids.append(edge.container_id)
             self.heuristic.update(edge_path)
-            self.heuristic.update([(state, control)])
+            self.heuristic.update([(node, control)])
             self.status = AgentStatus.FEASIBLE_PATH
+            print('converted successfully!')
+            # raise RuntimeError()
 
     def vote_edges(self):
-        for edge_container_id, node in zip(self.path_edge_container_ids,
+        for edge_container_id, node in zip(self.edge_container_ids(),
                                            self.path_nodes):
             self.edges[edge_container_id].parse_agent_vote(node, self)
 
@@ -501,13 +516,9 @@ class AgentContainer(Utils):
     def update_edge_progress(self):
         """ Return the amount of cells remaining after current state. """
         # TODO: trigger unregister event on edge_container and register event
-        print('state: ', self.state)
-        print(self.edge_container_ids())
-        print(self.path_edge_containers[0].state2progress)
         eta = self.path_edge_containers[0].update_agent_progress(self.id, self.state)
         if eta == 0:
             self.path_edge_containers.pop(0)
-            self.path_edge_container_ids.pop(0)
         return eta
 
     def set_control(self, controls):
@@ -519,16 +530,16 @@ class AgentContainer(Utils):
             print('ID: ', self.id, ' TRIGGER emergency stop.')
             controls[self.id] = Control.S
             return
-        print('Agent{}: '.format(self.id), '{}'.format(self.edge_container_ids()))
+        print('Agent{}: '.format(self.id), '\nPath-IDs:{}'.format(self.edge_container_ids()))
         controls[self.id] = self.heuristic[self.state].control
         AgentType = flatland.envs.agent_utils.RailAgentStatus
         sc = self.states[self.state]
         # TODO: update current edge progress every step
         print('ETA:', self.update_edge_progress())
         print(AgentType(self._agent.status))
-        print(self.state)
-        print('Available control:')
-        print(sc.controls)
+        #print(self.state)
+        #print('Available control:')
+        #print(sc.controls)
         return 
         controls[agent.id] = agent.heuristic[agent.state].control
         # print('FALIED', e)
@@ -581,7 +592,6 @@ class EdgeContainer(Utils):
         # DirectionType key and common path values (2 entries)
         self.path = dict()
         # State keys and EdgeDirection values
-        self.path_states = dict()
         self.length = None
 
         self._forward = dict()
@@ -593,8 +603,10 @@ class EdgeContainer(Utils):
         self._agent_registry = dict()
 
         self.state2progress = dict()
+        # NOTE: dev dict: remove for production
+        self.state2direction = dict()
 
-    def reset_vote(self):
+    def _reset_vote(self):
         """ Reset vote and allow all edge directions to be used. """
         self.vote = 0
         self.voted = False
@@ -607,8 +619,13 @@ class EdgeContainer(Utils):
         return (EdgeDirection.BACKWARD if backward
                 else EdgeDirection.FORWARD)
 
+    def on_direction(self, state):
+        """ Return the direction of the edge for a given state. """
+        return self.state2direction[state]
+
     def get_edges(self, voted=True):
         """ Return available edges under evaluated vote. """
+        print('EC{}'.format(self.id), '(Vote{})'.format(self.vote))
         if voted:
             if self._is_forward():
                 self.debug('EC-DEBUG: return forward edges')
@@ -641,19 +658,39 @@ class EdgeContainer(Utils):
         for progress, StateControl in enumerate(path):
             print(self.id, ': ', StateControl.state)
             self.state2progress[StateControl.state] = progress
+            # NOTE: dev dict -> to be removed for production
+            self.state2direction[StateControl.state] = edge_direction
         self.length = len(path)
 
     def add_states(self, ingress_states, path, backward=False):
-        """ Add direction encocding for state entries"""
+        """ Add direction encocding for state entries.
+
+            Note:
+                The ingress states are a dictionary of keys with states
+                that share the same traversability direction
+                and have values with ControlDirection.
+
+
+            Note:
+                - All obsolete: only required to add
+                  ingress_states to state2direction
+        """
         edge_direction = self._get_direction(backward)
+
         for state in ingress_states.keys():
-            self.path_states[state] = edge_direction
+            self.state2direction[state] = edge_direction
         for path_state_control in path:
-            self.path_states[path_state_control.state] = edge_direction
+            self.state2direction[path_state_control.state] = edge_direction
 
     def parse_agent_vote(self, state, agent):
         """ Register interest to use an edge in certain direction. """
-        edge_direction = self._edge_direction[state]
+        print('Agent edge ids:', agent.edge_container_ids())
+        ids = agent.edge_container_ids()
+        #print(agent.state)
+        #print('Progress: {}'.format(self.edges[ids[1]].state2progress[state]))
+        print('success??')
+        # TODO: don't use edge_direction -> use PATH_STATES
+        edge_direction = self.state2direction[state] #self._edge_direction[state]
         self.vote += edge_direction
         self._agent_registry[edge_direction] = agent.id
         self.voted = True
@@ -671,7 +708,7 @@ class EdgeContainer(Utils):
 
     def force_vote(self, edge_direction, agent):
         """ Enforce directional reservation for agents starting on edge. """
-        self.reset_vote()
+        self._reset_vote()
         self.vote += edge_direction
         self._agent_registry[edge_direction] = agent.id
         self.voted = True
@@ -733,16 +770,16 @@ class MyGraph(Utils):
     def _is_explored(self, state, control):
         return StateControl(state, control) in self.edge_collection.keys()
 
+    def _edge_ingress_states(self, state, direction):
+        """ Find all states at coordinate that lead to the same edge. """
+        return self.states[state].coc.direction2states[direction]
+
     def _reverse_edge_ingress_states(self, path):
         """ Return all states that led to edge from reversed direction. """
         goal_state = path[-1].state
         direction = FlipDirection[path[-2].control.direction]
 
         return self._edge_ingress_states(goal_state, direction)
-
-    def _edge_ingress_states(self, state, direction):
-        """ Find all states at coordinate that lead to the same edge. """
-        return self.states[state].coc.direction2states[direction]
 
     def _find_edge_path(self, ingress_states, edge_container_id):
         """ Return List of StateControl for state and control.
@@ -783,6 +820,12 @@ class MyGraph(Utils):
 
             self.edge_collection[StateControl(ingress_state, control)] = edge
             edges.append(edge)
+            if goal_state in self.states[ingress_state].traverse.keys():
+                # Possible to have multiple edges from one state leading to another edge
+                # This can lead to mismatched translation of networkx path tuples to
+                # corresponding edge_container_ids
+                print('duplicate edges encountered')
+                raise RuntimeError()
             self.states[ingress_state].traverse[goal_state] = control
 
         return edges
@@ -805,7 +848,7 @@ class MyGraph(Utils):
                                                      edge_container_id)
                 edge_container.add_path(path, backward=False)
                 edge_container.add_states(ingress_states, path)
-                edge_container.add_edges(edges)
+                edge_container.add_edges(edges, backward=False)
 
                 # Backward edges
                 ingress_states = self._reverse_edge_ingress_states(path)
@@ -842,15 +885,21 @@ class MyGraph(Utils):
                 Remove edge_containers from voting, if active_agents on edge
                 (e.g.: from init)
         """
+        # NOTE: check computation time and profile graph update methods
+        import time
+        timestamp = time.time()
+        self._graph.clear()
         for edge_container in self.edges.values():
             edges = edge_container.get_edges(voted=direction_aware)
             for edge in edges:
                 self._graph.add_edge(*edge.pair, length=edge.length)
-        self._graph.edges()
+        print('Reset graph in {:.4}s'.format(time.time() - timestamp))
+        print(self._graph.edges())
 
     def _update_agent_heuristics(self):
         """ Compute shortest path for each agent. """
         for agent in self.agents.values():
+            agent.reset_path()
             self.shortest_path(agent.id)
 
     def _conduct_vote(self):
