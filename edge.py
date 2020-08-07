@@ -37,14 +37,21 @@ class EdgeContainer(Utils):
                     - If edge exit, select next edge_id from path_id
 
             4. Voting has matured to a point that deserves a separate object.
+            
+            5. Mange voting result globally through dictionary on edge_container 
+                -> move self.vote to a dict under GlobalContainer
     """
     def __init__(self, ID, debug_is_enabled=True):
         self.id = ID
-        self.active_agents = dict()
         self.switch_debug_mode(debug_is_enabled)
 
         self.vote = 0
         self.vote_status : VoteStatus = VoteStatus.UNVOTED
+
+        # Actively moving agents
+        self.active_agents = dict()
+        # Voted agents expressed interest in moving over this section in the future
+        self.registered_agents = dict()
 
         # EdgeDirection key with goal_state value
         self.goal_state = dict()
@@ -55,7 +62,7 @@ class EdgeContainer(Utils):
         # Store previous direction to improve edge aditions
         self._previous_direction = None
 
-        # store forward and backward edges under EdgeDirection Key
+        # Store forward and backward edges under EdgeDirection Key
         self._edge_registry = dict()
         # collection of container edges with key being EdgeDirection
         self._edges = dict([(None, self._edge_registry)])
@@ -63,6 +70,7 @@ class EdgeContainer(Utils):
         self._edges[EdgeDirection.BACKWARD] = dict()
 
         self._edge_direction = dict()
+        # Collect agent interest in corresponding direction
         self._agent_registry = dict([(e, dict()) for e in EdgeDirection])
         self._edge_action = dict()
 
@@ -70,12 +78,6 @@ class EdgeContainer(Utils):
         self.state2progress = dict()
         # State to edge direction for container (localise on edge)
         self.state2direction = dict()
-
-    def _reset_vote(self):
-        """ Reset vote and allow all edge directions to be used. """
-        self.vote = 0
-        self.vote_status = VoteStatus.UNVOTED
-        self.previous_direction = None
 
     def _vote_result(self):
         """ Return None for unvoted or undecided. """
@@ -137,7 +139,7 @@ class EdgeContainer(Utils):
             Note:
                 If no agent has claimed interest, all edges are returned.
         """
-        print('EC{}'.format(self.id), '(Vote{})'.format(self.vote))
+        #print('EC{}'.format(self.id), '(Vote{})'.format(self.vote))
         if consider_vote:
             self.evaluate_vote()
             return self._edges[self._vote_result()].values()
@@ -148,7 +150,7 @@ class EdgeContainer(Utils):
 
             Note:
                 In order to reset voting and activating all edges use
-                reset_vote().
+                _reset_vote().
         """
         direction = self._vote_result()
         direction_reverse = EdgeDirection.reverse(direction)
@@ -173,12 +175,49 @@ class EdgeContainer(Utils):
         self._agent_registry[edge_direction][agent.id] = None
         self.vote_status = VoteStatus.VOTED
 
+    def _reset_vote(self):
+        """ Reset vote and allow all edge directions to be used.
+
+            Note
+                Reset_vote only possible through exit trigger
+                with active_agents and registered_agents being zero
+        """
+        self.vote = 0
+        self.vote_status = VoteStatus.UNVOTED
+        self.previous_direction = None
+
     def force_vote(self, edge_direction, agent):
         """ Enforce directional reservation for agents starting on edge. """
         self._reset_vote()
         self.vote += edge_direction
         self._agent_registry[edge_direction][agent.id] = None
         self.vote_status = VoteStatus.VOTED
+
+    def unregister_agent(self, agent_id):
+        """ Reserve usage of edge_container in future use. 
+
+            Note:
+                This is overwritten with 
+
+            Todo:
+                #-> Detect blocked agents and remove themselves from
+                    all future sections to maybe free up some sections
+                    for other agents.
+        """
+        self.registered_agents.pop(agent_id, None)
+
+    def register_agent(self, agent_id):
+        """ Reserve usage of edge_container in future use. 
+
+            Note:
+                This is overwritten with 
+
+            Todo:
+                #-> Detect blocked agents and remove themselves from
+                    all future sections to maybe free up some sections
+                    for other agents.
+        """
+        self.registered_agents[agent_id] = None
 
     def enter(self, state, agent_id):
         """ Conduct entry procedure for agent from state.
@@ -219,52 +258,28 @@ class EdgeContainer(Utils):
                 Reverse direction for affected agent retrieval.
 
         """
-        if len(self.active_agents) == 0:
-            edge_direction = self._vote_result()
-            if edge_direction is not None:
-                edge_direction_reverse = EdgeDirection.reverse(edge_direction)
-                self._edge_action[EdgeActionType.ADD] = self._edges[edge_direction_reverse]
-            else:
-                self._edge_action[EdgeActionType.ADD] = self._edge_registry.values()
-            #TODO: on exit add cont
-            self.edge_reactivation[self.id] = self
-            self._reset_vote()
-            print(self._agent_registry)
-            # switch mode for each agent to be triggered in heuristic recompuation in graph
-            for agent_id in self._agent_registry[edge_direction].keys():
-                self.agents[agent_id].update_edge_availability(self.id)
-
-
-            # TODO: activate AgentMode.RECOMPUTE_REQUEST -> 8 (unique) & |
-            #       -> in graph test all agents
-            # TODO; use global dictionary for reactivation schedule
-            # TODO; add callback for id in each agent
-            #       - from graph fetch pending agent requests
-            # update graph
-            # make 
-            # compute path
-            # vote
-            # recompute / make infeasible agents stale
-            #for agent_id in self._agent_registry[direction_reverse]:
-            #    # TODO: -> call this in agent.vote_path for each element
-            #    self.agents[agent_id].vote_edge_container(self.id)
-            #self.evaluate_vote
-            # TODO: activate all of this container edges
-            #       compute heuristic for all agents in registry
-            #       check if agents disagree -> need to recompute their edges
-            # TODO; store for each agent -> edge_container_id to node 
-            # TODO: add method to vot for specific edge_container
-            # revote from all agents in registry 
-            # since some agents could be on suboptimal route that
-            # prefers this to be in a different direction than initial vote
-            #edge_direction = EdgeDirection.reverse(self._vote_result())
-            #self._reset_vote()
-            # Move agents into exploring mode
+        if not len(self.active_agents) and not len(self.registered_agents):
+            try:
+                #input('\n\n\n###########\n\n\n\tconduct reactivation')
+                edge_direction = self._vote_result()
+                if edge_direction is not None:
+                    edge_direction_reverse = EdgeDirection.reverse(edge_direction)
+                    self._edge_action[EdgeActionType.ADD] = self._edges[edge_direction_reverse]
+                else:
+                    self._edge_action[EdgeActionType.ADD] = self._edge_registry.values()
+                self.edge_reactivation[self.id] = self
+                self._reset_vote()
+                for agent_id in self._agent_registry[edge_direction].copy().keys():
+                    self.agents[agent_id].update_edge_availability(self.id)
+                    self._agent_registry.pop(agent_id, None)
+            except:
+                print('yolo')
 
     def exit(self, agent_id):
         """ Remove agent from active_agents and priority_dict. """
         #prio = self.active_agents[agent_id].priority
         #self.priority_dict[prio].pop(agent_id, None)
         self.active_agents.pop(agent_id, None)
+        self.registered_agents.pop(agent_id, None)
         self._update_occupancy()
 
