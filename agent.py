@@ -80,6 +80,9 @@ class AgentContainer(Utils):
             self.mode = AgentMode.EXPLORING
 
     def reset_path(self):
+        """ """
+        # Here first unregister from the whole previous path
+        self.unregister_edges()
         self.heuristic = dict()
         self.path = list()
         self.path_edge_containers = list()
@@ -134,6 +137,7 @@ class AgentContainer(Utils):
             self.heuristic.update(edge_path)
             self.heuristic.update([(node, control)])
             self.status = AgentStatus.FEASIBLE_PATH
+        self.register_edges()
 
     def vote_edges(self):
         """ Register interest in using edge_container_ids from its path. 
@@ -149,6 +153,34 @@ class AgentContainer(Utils):
         for edge_container_id, node in zip(self.edge_container_ids(),
                                            self.path_nodes):
             self.edges[edge_container_id].parse_agent_vote(node, self)
+
+    def unregister_edges(self):
+        """ Unregister to all  edge_containers on path.
+
+            Note:
+                This is done once whenever the agent receives a
+                new path reset via reset_path.
+
+            Todo:
+                Avoid collisions while maintaining dynamic
+                reconfigurability for freed edge_containers.
+        """
+        for edge_container in self.path_edge_containers:
+            edge_container.unregister_agent(self.id)
+
+    def register_edges(self):
+        """ Register to all  edge_containers on path.
+
+            Note:
+                This is done once whenever the agent receives a
+                new path via update_path.
+
+            Todo:
+                Avoid collisions while maintaining dynamic
+                reconfigurability for freed edge_containers.
+        """
+        for edge_container in self.path_edge_containers:
+            edge_container.register_agent(self.id)
 
     def update(self):
         """ Update agent state with flatland environment state. """
@@ -173,17 +205,20 @@ class AgentContainer(Utils):
             self.path_edge_containers.pop(0)
 
     def set_control(self, controls):
-        """ Update control dictionary and update active linked edge_containers"""
+        """ Update control dictionary and update active linked edge_containers.
+
+            Note:
+                Condition actions (skipping on flatland states)
+                see flatland.envs.agent_utils.RailAgentStatus
+
+        """
         if not self.status == AgentStatus.FEASIBLE_PATH:
-            print('ID: ', self.id, ' No Path: Stopping!')
+            #print('ID: ', self.id, ' No Path: Stopping!')
             controls[self.id] = Control.S
             return
-        print('Agent{}: '.format(self.id), '\nPath-IDs:{}'.format(self.edge_container_ids()))
         controls[self.id] = self.heuristic[self.state].control
-        AgentType = flatland.envs.agent_utils.RailAgentStatus
-        sc = self.states[self.state]
         self.update_edge_progress(self.path_edge_containers[0])
-        return
+        # print('Agent{}: '.format(self.id), '\nPath-IDs:{}'.format(self.edge_container_ids()))
 
 
 class AgentTraverse(GlobalContainer):
