@@ -37,7 +37,7 @@ StateControl = collections.namedtuple('State', ['state', 'control'])
 # Store a pair of vertices
 Pair = collections.namedtuple('Pair', ['vertex_1', 'vertex_2'])
 # Define an edge with its corresponding feed_forward control (autopilot until next intersection)
-Edge = collections.namedtuple('Edge', ['pair', 'priority', 'path', 'length'])
+Edge = collections.namedtuple('Edge', ['pair', 'priority', 'path', 'length', 'container_id'])
 
 
 class Direction(enum.IntEnum):
@@ -80,6 +80,13 @@ class StateType(enum.IntEnum):
 class EdgeDirection(enum.IntEnum):
     FORWARD = 1
     BACKWARD = -1
+
+
+class AgentStatus(enum.IntEnum):
+    NONE = 0
+    INITIALISED = 1
+    INFEASIBLE_PATH = 2
+    FEASIBLE_PATH = 3
 
 
 Tests = [[Control.L, -1],
@@ -150,6 +157,8 @@ class GlobalContainer(object):
     edge_collection = dict()
     # Priority dictionary
     priority_dict = dict([(p, dict()) for p in Priority])
+    # Global debug flag (overwritten in instances)
+    debug_is_enabled = False
 
     @classmethod
     def set_env(cls, env_arg):
@@ -164,6 +173,20 @@ def set_env(env_arg):
 
 
 class Utils(GlobalContainer):
+
+    def switch_debug_mode(self, debug_is_enabled=None):
+        """ Return global debug mode if no argument provided. """
+        if debug_is_enabled is None:
+            return
+        self.debug_is_enabled = debug_is_enabled
+
+    def debug(self, *args):
+        """ Print message if debug_is_enabled is True. """
+        if not self.debug_is_enabled:
+            return
+        import inspect
+        frame = inspect.getouterframes(inspect.currentframe(), 2)
+        print(str(self.__class__.__name__), ':\n\t', frame[1][3], ':\n\t\t',  *args)
 
     @staticmethod
     def _bits(i, value):
@@ -242,9 +265,10 @@ class CoordinateContainer(Utils):
             Coordinate metrics should be accessible based on States
             -> e.g. direction based controls
     """
-    def __init__(self, ID, coordinate, debug_is_enabled=False):
+    def __init__(self, ID, coordinate, debug_is_enabled=None):
         self.id = ID
         self.coordinate = coordinate
+        self.switch_debug_mode(debug_is_enabled)
 
         all_control_bits = self._all_control_bits(coordinate)
         valid_directions = self._valid_directions(all_control_bits)
@@ -317,7 +341,7 @@ class StateContainer(object):
             Allows easy extension and access of state metrics.
 
         Todo:
-            should directly be reference by agent
+            - should directly be reference by agent
     """
     def __init__(self, state, coordinate_container):
         self.state = state
@@ -337,7 +361,7 @@ class StateContainer(object):
         self.traverse = dict()
 
 
-class AgentContainer(GlobalContainer):
+class AgentContainer(Utils):
     """ Get subset of metrics from flatland environment. 
     
         Note:
@@ -347,13 +371,17 @@ class AgentContainer(GlobalContainer):
             - architecture design
             - interfaces to simulator
     """
-    def __init__(self, ID, agent):
+    def __init__(self, ID, agent, debug_is_enabled=None):
         self.id = ID
         self._agent = agent
+        self.switch_debug_mode(debug_is_enabled)
+
         a = self._agent
         (r, c) = a.initial_position
         d = a.initial_direction
         self.state = State(r, c, d)
+        self.status = AgentStatus.INITIALISED
+        #self.status = a.status
 
         # Note: initialised in graph (locate_agents_in_graph)
         self.target = Coordinate(*agent.target)
@@ -373,6 +401,8 @@ class AgentContainer(GlobalContainer):
         # speed = a.speed_data['speed']
         # import math; self.speed = math.ceil(1/speed)
         self.path = list()
+        self.path_edge_container_ids = list()
+        self.path_nodes = list()
         self.heuristic = dict()
 
     def initialise(self):
@@ -382,12 +412,18 @@ class AgentContainer(GlobalContainer):
         self.target_nodes = self.target_container.valid_states
 
     def locate(self):
-        """ Find next search node and update heuristics if on edge. """
+        """ Locate agent in graph and Find next search node.
+
+            Note:
+                If on edge use its path as heuristic.
+        """
         state_container = self.states[self.state]
         if not state_container.type & StateType.NODE:
             edge_container_id = state_container.edges[0]
             edge_container = self.edges[edge_container_id]
             edge_direction = edge_container.path_states[self.state]
+
+            edge_container.force_vote(edge_direction, self)
             goal_state = edge_container.goal_state[edge_direction]
             self.heuristic.update(edge_container.path[edge_direction])
             self.current_node = edge_container.goal_state[edge_direction]
@@ -395,15 +431,24 @@ class AgentContainer(GlobalContainer):
         self.current_node = self.state
 
     def update_path(self, path):
-        """ Update path to receive agent heuristic. """
-
+        """ Use path with list of nodes to receive agent heuristics. """
+        self.path_edge_container_ids = list()
+        self.path_nodes = path
         for idx, state in enumerate(path):
             if idx == len(path)-1:
                 continue
             control = self.states[state].traverse[path[idx+1]]
-            edge_path = self.edge_collection[StateControl(state, control)].path
+            edge = self.edge_collection[StateControl(state, control)]
+            edge_path = edge.path
+            self.path_edge_container_ids.append(edge.container_id)
             self.heuristic.update(edge_path)
             self.heuristic.update([(state, control)])
+            self.status = AgentStatus.FEASIBLE_PATH
+
+    def vote_edges(self):
+        for edge_container_id, node in zip(self.path_edge_container_ids,
+                                           self.path_nodes):
+            self.edges[edge_container_id].parse_agent_vote(node, self)
 
     def update(self):
         """ Update agent state with flatland environment state. """
@@ -415,6 +460,28 @@ class AgentContainer(GlobalContainer):
         (r, c) = a.position
         d = a.direction
         self.state = State(r, c, d)
+        # self.status = i.status
+
+    def set_control(self, controls):
+        # TODO: check if has a heuristic and path
+        #       -> otherwise DO not departure
+        import flatland
+        if not self.status == AgentStatus.FEASIBLE_PATH:
+            print('ID: ', self.id, ' TRIGGER emergency stop.')
+            controls[self.id] = Control.S
+            return
+        print('Agent{}: '.format(self.id), '{}'.format(self.path_edge_container_ids))
+        controls[self.id] = self.heuristic[self.state].control
+        AgentType = flatland.envs.agent_utils.RailAgentStatus
+        sc = self.states[self.state]
+        print(AgentType(self._agent.status))
+        print(self.state)
+        print('Available control:')
+        print(sc.controls)
+        return 
+        controls[agent.id] = agent.heuristic[agent.state].control
+        # print('FALIED', e)
+        # controls[agent.id] = Control.F
 
 
 class AgentTraverse(GlobalContainer):
@@ -430,8 +497,13 @@ class AgentTraverse(GlobalContainer):
         self.speed = self.agent.speed
 
 
-class EdgeContainer(GlobalContainer):
+class EdgeContainer(Utils):
     """ Edge related metrics and occupancy trackers.
+
+        Note:
+            Set default debug_is_enabled=None to fetch
+            global debug_mode and set to True to activate
+            debug for all EdgeContainers.
 
         Todo:
             1.
@@ -442,11 +514,16 @@ class EdgeContainer(GlobalContainer):
                 Add collision matrix with agent steps for
                 global N prediction steps along path length M
                 -> matrix &operator should yield zero for collision free
+
+            3. 
+                AgentContainer -> get_control -> update current_edge -> move_agent
+                    - If edge exit, select next edge_id from path_id
     """
-    def __init__(self, ID):
+    def __init__(self, ID, debug_is_enabled=True):
         self.id = ID
         self.vote = 0
         self.active_agents = dict()
+        self.switch_debug_mode(debug_is_enabled)
 
         # EdgeDirection key with goal_state value
         self.goal_state = dict()
@@ -457,16 +534,19 @@ class EdgeContainer(GlobalContainer):
 
         self._forward = dict()
         self._backward = dict()
+        # store forward and backward edges under EdgeDirection Key
+        self._edge_registry = dict()
 
         self._edge_direction = dict()
-        self._agent_register = dict()
+        self._agent_registry = dict()
 
-    def _reset_vote(self):
+    def reset_vote(self):
         """ Reset vote and allow all edge directions to be used. """
         self.vote = 0
+        self.voted = False
 
     def _is_forward(self):
-        return self.vote > 0
+        return self.vote >= 0
 
     def _get_direction(self, backward):
         """ Return the EdgeDirection for backward argument. """
@@ -476,10 +556,18 @@ class EdgeContainer(GlobalContainer):
     def get_edges(self, voted=True):
         """ Return available edges under evaluated vote. """
         if voted:
-            if self._is_forward:
+            if self._is_forward():
+                self.debug('EC-DEBUG: return forward edges')
                 return self._forward.values()
+            self.debug('EC-DEBUG: return backward edges')
             return self._backward.values()
-        return dict(**self._forward, **self._backward).values()
+        return self.edge_registry.values()
+        #self.debug('EC-DEBUG: return all edges')
+        #d = dict()
+        #d.update(self._forward)
+        #d.update(self._backward)
+        #return d.values()
+        #return dict(self._forwardself._backward).values()
 
     def add_edges(self, edges, backward=False):
         """ Add edges according to EdgeDirection to dict. """
@@ -488,6 +576,7 @@ class EdgeContainer(GlobalContainer):
         for edge in edges:
             target_dict[edge.pair.vertex_1] = edge
             self._edge_direction[edge.pair.vertex_1] = edge_direction
+            self.edge_registry[edge.pair.vertex_1] = edge
 
     def add_path(self, path, backward=False):
         """ Store common path in attribute according to EdgeDirection. """
@@ -503,17 +592,30 @@ class EdgeContainer(GlobalContainer):
         for path_state_control in path:
             self.path_states[path_state_control.state] = edge_direction
 
-    def vote(self, state, agent):
+    def parse_agent_vote(self, state, agent):
         """ Register interest to use an edge in certain direction. """
         edge_direction = self._edge_direction[state]
         self.vote += edge_direction
-        self._agent_registry[edge_direction] = agent_id
+        self._agent_registry[edge_direction] = agent.id
+        self.voted = True
 
     def get_vote_affected_agents(self):
-        """ Return all minority agent_ids from edge. """
-        vote_affected = self._get_direction(backward=self.vote>0)
+        """ Return all minority agent_ids from edge. 
 
-        return self._agent_registry[vote_result]
+            Note:
+                If vote is positive (forward) or zero return all backward
+                edges that are to be removed.
+        """
+        vote_affected = self._get_direction(backward=self.vote>=0)
+
+        return self._agent_registry[vote_affected]
+
+    def force_vote(self, edge_direction, agent):
+        """ Enforce directional reservation for agents starting on edge. """
+        self.reset_vote()
+        self.vote += edge_direction
+        self._agent_registry[edge_direction] = agent.id
+        self.voted = True
 
     def register(self, agent_id, step):
         """ Register when an agent is expected to enter this edge.  """
@@ -536,10 +638,22 @@ class EdgeContainer(GlobalContainer):
         #   and reference to agent's traverse metrics
         self.priority_dict[edge.priority][agent_id] = agent_container
 
+    # NOTE: Development: Test function
+    def transition(self, agent_id, state):
+        # get agent
+        # if cell_id -> 0 -> trigger enter
+        # cell_id =  state2path
+        # if cell_id -> trigger exit
+        #   on exit -> trigger agent.next_edge
+        #       -> remove from left from path_edge_container_ids
+        pass
+
+
     def exit(self, agent_id):
         """ Remove agent from active_agents and priority_dict. """
         prio = self.active_agents[agent_id].priority
         self.priority_dict[prio].pop(agent_id, None)
+        # TODO: reset if last agent left -> indicates that edge can be revoted
 
 
 class MyGraph(Utils):
@@ -548,8 +662,9 @@ class MyGraph(Utils):
         Note:
             Update active edges or compute shortest path.
     """
-    def __init__(self, debug=False):
-        self.debug_is_enabled = debug
+    def __init__(self, debug_is_enabled=None):
+        self.switch_debug_mode(debug_is_enabled)
+        self.visualisation_is_enabled = True  #NOTE: 'debug' in production stage
 
         self._graph = networkx.DiGraph()
 
@@ -596,7 +711,8 @@ class MyGraph(Utils):
         path.append(StateControl(state, ControlDirection(Control.S, None)))
         return path
 
-    def _define_edges_from_path(self, ingress_states, path):
+    def _define_edges_from_path(self, ingress_states, path, 
+                                edge_container_id):
         """ Parse entry_states and path into edges. """
         edges = list()
         goal_state = path[-1].state
@@ -608,7 +724,8 @@ class MyGraph(Utils):
 
             priority = self.states[goal_state].priority
             pair = Pair(ingress_state, goal_state)
-            edge = Edge(pair, priority, edge_path, len(edge_path))
+            edge = Edge(pair, priority, edge_path, len(edge_path), 
+                        edge_container_id)
 
             self.edge_collection[StateControl(ingress_state, control)] = edge
             edges.append(edge)
@@ -630,7 +747,8 @@ class MyGraph(Utils):
                 direction = control.direction
                 ingress_states = self._edge_ingress_states(node.state, direction)
                 path = self._find_edge_path(ingress_states, edge_container_id)
-                edges = self._define_edges_from_path(ingress_states, path)
+                edges = self._define_edges_from_path(ingress_states, path,
+                                                     edge_container_id)
                 edge_container.add_path(path, backward=False)
                 edge_container.add_states(ingress_states, path)
                 edge_container.add_edges(edges)
@@ -638,7 +756,8 @@ class MyGraph(Utils):
                 # Backward edges
                 ingress_states = self._reverse_edge_ingress_states(path)
                 path = self._find_edge_path(ingress_states, edge_container_id)
-                edges = self._define_edges_from_path(ingress_states, path)
+                edges = self._define_edges_from_path(ingress_states, path,
+                                                     edge_container_id)
                 edge_container.add_path(path, backward=True)
                 edge_container.add_states(ingress_states, path, backward=True)
                 edge_container.add_edges(edges, backward=True)
@@ -655,31 +774,56 @@ class MyGraph(Utils):
             coordinate = Coordinate(r, c)
             CoordinateContainer(id_railway, coordinate)
 
-    def _create_graph(self):
+    def _create_graph(self, direction_aware=True):
         """ Initialise networkx graph with all edges.
 
             Note:
                 Recommended to first run vote edges and update edge_containers
                 to remove deadlocks.
 
+                Direction_aware flag allows to select only prioritised edges from
+                each edge_container. (unidirectional section use)
+
             TODO:
                 Remove edge_containers from voting, if active_agents on edge
                 (e.g.: from init)
         """
-        for edge in self.edge_collection.values():
-            self._graph.add_edge(*edge.pair, length=edge.length)
+        for edge_container in self.edges.values():
+            edges = edge_container.get_edges(voted=direction_aware)
+            for edge in edges:
+                self._graph.add_edge(*edge.pair, length=edge.length)
         self._graph.edges()
 
-    def _update_agents(self):
+    def _update_agent_heuristics(self):
+        """ Compute shortest path for each agent. """
         for agent in self.agents.values():
             self.shortest_path(agent.id)
+
+    def _conduct_vote(self):
+        """ Execute voting on all edges in agent's path. """
+        for agent in self.agents.values():
+            agent.vote_edges()
+
+    def _update_graph(self):
+        """ Update graph by removing outvoted graph. """
+        # TODO: fix unvoted / irregularities etc.
+        for edge_container in self.edges.values():
+            edges = edge_container.get_edges()
+            for edge in edges:
+                self._graph.remove_edge(*edge.pair)
 
     def _initialise_graph(self):
         self._initialise_railway()
         self._initialise_edges()
         self._locate_agents_in_graph()
-        self._create_graph()
-        self._update_agents()
+        self.debug('Initialise graph')
+        self._create_graph(direction_aware=False)
+        self._update_agent_heuristics()
+
+        self._conduct_vote()
+        self.debug('Recompute heuristics with direction constraints')
+        self._create_graph(direction_aware=True)
+        self._update_agent_heuristics()
 
     def _initialise_agents(self):
         """ Parse flatland metrics from agents. """
@@ -695,41 +839,41 @@ class MyGraph(Utils):
         import time
         agent = self.agents[agent_id]
         current = agent.current_node
+        timestamp = time.time()
         for target in agent.target_nodes.keys():
             try:
-                timestamp = time.time()
                 sp = self._shortest_path(current, target)
                 agent.update_path(sp)
-                print('Agent{} : {}s'.format(agent_id, time.time() - timestamp))
-                break
-            except networkx.NetworkXNoPath as e:
-                print(e, '\n\txxx - Target: ', target)
+                self.debug('Agent{0}: '.format(agent_id), agent.status,
+                           'Successful path computation',
+                           '({:.4}s)'.format(time.time() - timestamp))
+                return
+            except (networkx.exception.NodeNotFound, networkx.NetworkXNoPath) as e:
+                # TODO: consider that agent might be able to use 
+                #       existing heuristic as path
+                self.debug('Agent{}:'.format(agent_id), ' Errored in path computation! \n\t', e)
+        agent.status = AgentStatus.INFEASIBLE_PATH
+        self.debug('Agent{0} :'.format(agent_id), agent.status, 'Total failure of path comptutaion.', '({:.4}s)'.format(time.time() - timestamp))
 
     # NOTE: Final placement under rollout.py
     def controls(self):
         controls = dict()
         for agent in self.agents.values():
-            import flatland
-            AgentType = flatland.envs.agent_utils.RailAgentStatus
-            print(AgentType(agent._agent.status))
-            print(agent.state)
-            sc = self.states[agent.state]
-            print('Available control:')
-            print(sc.controls)
-            controls[agent.id] = agent.heuristic[agent.state].control
-            # print('FALIED', e)
-            # controls[agent.id] = Control.F
+            agent.set_control(controls)
         return controls
 
     def update(self):
-        """ Update each agent with most recent flatland states. """
+        """ Update each agent state with most recent flatland states. """
         for agent in self.agents.values():
             agent.update()
 
     def visualise(self, env_renderer):
         """ Call display utility methods and visualise metrics and states. """
-        import display
-        display.show_agents(env_renderer, self.agents.values())
+        if self.visualisation_is_enabled:
+            import display
+            # define agent_ids to visualise
+            # TODO: visualise agent path -> heuristic keys 
+            display.show_agents(env_renderer, self.agents.values())
 
 
 
