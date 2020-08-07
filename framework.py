@@ -32,7 +32,6 @@ class GlobalContainer(object):
     edges = dict()
     # A collection of all edges indexed by their StateControl and linked to the EdgeContainer
     edge_collection = dict()
-    # Agent dictionary 
     # Edge containers triggered for reactivation of unscheduled edges
     edge_reactivation = dict()
     # Priority dictionary
