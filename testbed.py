@@ -84,7 +84,7 @@ if __name__ == "__main__":
         controls = g.controls()
         print('##Testbed: Apply controls:\n', controls)
         env.step(controls)
-        g.update()
+        g.update_agent_states()
         g.visualise(env_renderer)
         input('## --> Continue?')
 
