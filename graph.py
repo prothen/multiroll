@@ -53,6 +53,7 @@ class MyGraph(Utils):
         self.visualisation_is_enabled = True  #NOTE: 'debug' in production stage
 
         self._graph = networkx.DiGraph()
+        self.graph_activity = GraphActivity.ZERO
 
         self._initialise_agents()
         self._initialise_graph()
@@ -119,7 +120,7 @@ class MyGraph(Utils):
                 # Possible to have multiple edges from one state leading to another edge
                 # This can lead to mismatched translation of networkx path tuples to
                 # corresponding edge_container_ids
-                print('duplicate edges encountered')
+                # print('duplicate edges encountered')
                 raise RuntimeError()
             self.states[ingress_state].traverse[goal_state] = control
 
@@ -164,7 +165,7 @@ class MyGraph(Utils):
             coordinate = Coordinate(r, c)
             CoordinateContainer(id_railway, coordinate)
 
-    def _create_graph(self, direction_aware=True):
+    def _create_graph(self, consider_vote=True):
         """ Initialise networkx graph with all edges.
 
             Note:
@@ -177,7 +178,7 @@ class MyGraph(Utils):
                 Recommended to first run vote edges and update edge_containers
                 to remove deadlocks.
 
-                Direction_aware flag allows to select only prioritised edges from
+                Consider_vote flag allows to select only prioritised edges from
                 each edge_container. (unidirectional section use)
 
             TODO:
@@ -185,36 +186,31 @@ class MyGraph(Utils):
                 (e.g.: from init)
         """
         # NOTE: check computation time and profile graph update methods
-        import time
         timestamp = time.time()
         self._graph.clear()
         for edge_container in self.edges.values():
-            print(edge_container)
-            edges = edge_container.get_edges(consider_vote=direction_aware)
+            edges = edge_container.get_edges(consider_vote=consider_vote)
             for edge in edges:
-                print(edge)
                 self._graph.add_edge(*edge.pair, length=edge.length)
         print('Reset graph in {:.4}s'.format(time.time() - timestamp))
         # print(self._graph.edges())
 
-    # LEGACY: can be removed 
-    def schedule_agent_update(self, agent):
-        """ Add agent to list of agents that will attempt to get
-            new feasible path.
-
-            Note:
-                For immediate recomputation use shortest_path(agent).
-        """
-        self.scheduled_agents.append(agent)
-
-    def _update_agent_heuristics(self):
+    def _update_agent_heuristics(self, optimal=True):
         """ Compute shortest path for each agent. """
         for agent in self.agents.values():
             agent.reset_path()
             self.shortest_path(agent)
 
     def _conduct_vote(self):
-        """ Execute voting on all edges in agent's path. """
+        """ Execute voting on all edges in agent's path.
+
+            This is only for initialisation.
+
+        """
+        #for edge_container in self.edges.values():
+        #    # NOTE: this triggers UNVOTED -> None in vote_edges
+        #    edge_container.reset_vote()
+
         for agent in self.agents.values():
             agent.vote_edges()
 
@@ -223,12 +219,12 @@ class MyGraph(Utils):
         self._initialise_edges()
         self._locate_agents_in_graph()
         self.debug('Initialise graph')
-        self._create_graph(direction_aware=False)
-        self._update_agent_heuristics()
+        self._create_graph(consider_vote=False)
+        self._update_agent_heuristics(optimal=True)
 
         self._conduct_vote()
         self.debug('Recompute heuristics with direction constraints')
-        self._create_graph(direction_aware=True)
+        self._create_graph(consider_vote=True)
         self._update_agent_heuristics()
 
     def _initialise_agents(self):
@@ -273,12 +269,8 @@ class MyGraph(Utils):
         for edge_container in self.edge_reactivation.values():
             new_edges = edge_container.get_edge_updates()
             for action, edges in new_edges.items():
-                print(edges)
-                print('edges')
                 if action == EdgeActionType.ADD:
                     for edge in edges.values():
-                        print('edge')
-                        print(edge)
                         self._graph.add_edge(*edge.pair, length=edge.length)
                     continue
                 for edge in edges.values():
@@ -287,33 +279,40 @@ class MyGraph(Utils):
         for pop in pop_list:
             self.edge_reactivation.pop(pop, None)
         return
-        #return 
-        #new_edges = dict()
-        #for edge_container in self.edges.values():
-        #    new_edges.update(edge_container.get_edge_updates())
-        #for action, edges in new_edges.items():
-        #    if action == EdgeActionType.ADD:
-        #        self._graph.add_edge(*edge.pair, length=edge.length)
-        #        continue
-        #    self._graph.remove_edge(*edge.pair, length=edge.length)
 
     def _is_agent_exploring(self, agent):
-        print('Test if agent can be reactivated and recomputing a new path')
-        #if not agent.mode == AgentMode.EXPLORING:
-        if agent.mode == AgentMode.ACTIVE:
-            print('Agent', agent.id, ': agent alread active!')
-            return  # NOTE: Leave moving trains untouched
-        #    print('Agent',agent.id,' is ', agent.mode)
+        print('Agent{}'.format(agent.id), agent.mode, agent._agent.status)
+        if (agent.mode == AgentMode.STALE or
+            agent._agent.status == flatland.envs.agent_utils.RailAgentStatus.DONE_REMOVED):
+            # print('skip {}'.format(agent.id))
+            return False # NOTE: Leave moving trains untouched
+        self.graph_activity |= GraphActivity.AGENT_ACTIVE
+        if agent.mode == AgentMode.EXPLORING:
+            self._update_graph_edges()
+            self.debug_is_enabled = True
+            self.shortest_path(agent)
+            self.debug_is_enabled = False
+        return True
+        #if agent.mode == AgentMode.STALE:
         #    return
-        self._update_graph_edges()
-        self.shortest_path(agent)
 
     # NOTE: Final placement under rollout.py
     def controls(self):
         controls = dict()
+        self.graph_activity = GraphActivity.ZERO
         for agent in self.agents.values():
-            self._is_agent_exploring(agent)
-            agent.set_control(controls)
+            if self._is_agent_exploring(agent):
+                agent.set_control(controls)
+                continue
+            #if self.graph_activity == GraphActivity.ZERO:
+            #    print('Stale graph')
+            #    controls[agent.id] = self.states[agent.state][0].control
+            controls[agent.id] = Control.S
+        print('is active?')
+        print(self.graph_activity)
+        if self.graph_activity == GraphActivity.ZERO:
+            self._create_graph(consider_vote=False)
+            self._update_agent_heuristics(optimal=True)
         return controls
 
     def update_agent_states(self):
