@@ -43,6 +43,10 @@ class MyGraph(Utils):
 
         Note:
             Update active edges or compute shortest path.
+
+        Note: / TODO:
+            Maybe easier to maintain two graphs (one complete and a subset 
+            dynamically updated)
     """
     def __init__(self, debug_is_enabled=None):
         self.switch_debug_mode(debug_is_enabled)
@@ -265,20 +269,39 @@ class MyGraph(Utils):
 
     def _update_graph_edges(self):
         """ Update graph by adding and removing voted edges graph. """
-        new_edges = dict()
-        for edge_container in self.edges.values():
-            new_edges.update(edge_container.get_edge_updates())
-        for action, edges in new_edges.items():
-            if action == EdgeActionType.ADD:
-                self._graph.add_edge(*edge.pair, length=edge.length)
-                continue
-            self._graph.remove_edge(*edge.pair, length=edge.length)
+        pop_list = list()
+        for edge_container in self.edge_reactivation.values():
+            new_edges = edge_container.get_edge_updates()
+            for action, edges in new_edges.items():
+                print(edges)
+                print('edges')
+                if action == EdgeActionType.ADD:
+                    for edge in edges.values():
+                        print('edge')
+                        print(edge)
+                        self._graph.add_edge(*edge.pair, length=edge.length)
+                    continue
+                for edge in edges.values():
+                    self._graph.remove_edge(*edge.pair, length=edge.length)
+            pop_list.append(edge_container.id)
+        for pop in pop_list:
+            self.edge_reactivation.pop(pop, None)
+        return
+        #return 
+        #new_edges = dict()
+        #for edge_container in self.edges.values():
+        #    new_edges.update(edge_container.get_edge_updates())
+        #for action, edges in new_edges.items():
+        #    if action == EdgeActionType.ADD:
+        #        self._graph.add_edge(*edge.pair, length=edge.length)
+        #        continue
+        #    self._graph.remove_edge(*edge.pair, length=edge.length)
 
     def _is_agent_exploring(self, agent):
         print('Test if agent can be reactivated and recomputing a new path')
-        print(agent.mode)
         #if not agent.mode == AgentMode.EXPLORING:
         if agent.mode == AgentMode.ACTIVE:
+            print('Agent', agent.id, ': agent alread active!')
             return  # NOTE: Leave moving trains untouched
         #    print('Agent',agent.id,' is ', agent.mode)
         #    return
