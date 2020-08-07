@@ -17,6 +17,7 @@
 
 import copy
 import enum
+import time
 import numpy
 import pandas
 import ctypes
@@ -90,7 +91,15 @@ class EdgeActionType(enum.IntEnum):
 
 
 class VoteStatus(enum.IntEnum):
-    """ Semantic structuring of voting related states. """
+    """ Semantic structuring of voting related states. 
+
+        Note:
+            Whenever VOTED or UNVOTED is set, ELECTED
+            is reset implicitly. Setting ELECTED is
+            done only through '|' and tested through
+            '&'.
+                e.g. if var & VoteStatus.ELECTED
+    """
     # No votes submitted
     NONE = 0
     # Votes received and either pending or elected (in graph)
@@ -106,6 +115,14 @@ class AgentStatus(enum.IntEnum):
     INITIALISED = 1
     INFEASIBLE_PATH = 2
     FEASIBLE_PATH = 3
+
+class AgentMode(enum.IntEnum):
+    # Once infeasibility is encountered on existing graph
+    STALE = 0
+    # If graph is updated and not yet active
+    EXPLORING = 1
+    # If currently active and following feasible path
+    ACTIVE = 2
 
 
 Tests = [[Control.L, -1],
@@ -386,7 +403,7 @@ class StateContainer(object):
 
 class AgentContainer(Utils):
     """ Get subset of metrics from flatland environment. 
-    
+
         Note:
             Defines agent interface to flatland agents.
 
@@ -403,7 +420,11 @@ class AgentContainer(Utils):
         (r, c) = a.initial_position
         d = Direction(a.initial_direction)
         self.state = State(r, c, d)
+        # TODO: maybe rename to path_status
         self.status = AgentStatus.INITIALISED
+        # NOTE: should also consider whether any interaction with it is necessary
+        # -> see DONE_REMOVE, DONE
+        self.mode : AgentMode = AgentMode.EXPLORING
 
         # Note: initialised in graph (locate_agents_in_graph)
         self.target = Coordinate(*agent.target)
@@ -431,6 +452,9 @@ class AgentContainer(Utils):
         self.path_nodes = list()
         self.heuristic = dict()
 
+    def edge_container_ids(self):
+        return [e.id for e in self.path_edge_containers]
+
     def initialise(self):
         """ Fetch current states and update targets.
 
@@ -438,10 +462,16 @@ class AgentContainer(Utils):
                 Called after MyGraph has initialised railway.
 
         """
-        #self.update()
         self.target_container = self.railway[self.target]
         self.target_nodes = self.target_container.valid_states
-    
+
+    def update_edge_availability(self, edge_container_id):
+        """ Test if this agent is interested to hear about the reactivation of
+            a previously voting-related denied edge.
+        """
+        if not self.mode == AgentMode.ACTIVE:
+            self.mode = AgentMode.EXPLORING
+
     def reset_path(self):
         self.heuristic = dict()
         self.path = list()
@@ -496,6 +526,12 @@ class AgentContainer(Utils):
             self.status = AgentStatus.FEASIBLE_PATH
 
     def vote_edges(self):
+        """ Register interest in using edge_container_ids from its path. """
+        if not self.status == AgentStatus.FEASIBLE_PATH:
+            print('Agent has been asked to vote but does not have feasible path')
+            # NOTE: -> store initial heuristic (isolated optimal shortest path) in
+            #          attribute and recover
+            raise RuntimeError()
         for edge_container_id, node in zip(self.edge_container_ids(),
                                            self.path_nodes):
             self.edges[edge_container_id].parse_agent_vote(node, self)
@@ -510,18 +546,15 @@ class AgentContainer(Utils):
         (r, c) = a.position
         d = Direction(a.direction)
         self.state = State(r, c, d)
-        # self.status = i.status
-
-    # NOTE: move subsequent to __init__
-    def edge_container_ids(self):
-        return [e.id for e in self.path_edge_containers]
-    
-    # NOTE: Dev - remove for production
-    def transition(self):
-        self.path_edge_containers[0].eta
 
     def update_edge_progress(self):
-        """ Return the amount of cells remaining after current state. """
+        """ Return the amount of cells remaining after current state. 
+
+            Note:
+                This implicitly switches to the next edge_container_id and
+                in update_agent_progress tests if edge availability changes.
+
+        """
         # TODO: trigger unregister event on edge_container and register event
         eta = self.path_edge_containers[0].update_agent_progress(self.id, self.state)
         if eta == 0:
@@ -703,9 +736,6 @@ class EdgeContainer(Utils):
         """ Register interest to use an edge in certain direction. 
 
             Note:
-                Subsequent 
-
-            Note:
                 - Add callback to agents that lost election
                 --> On recent trigger lost_dict_i.notify_edge_availability()
                 --> Agent: if is INFEASIBLE_PATH -> cast for recomputation
@@ -717,10 +747,7 @@ class EdgeContainer(Utils):
         edge_direction = self.state2direction[state]
         self.vote += edge_direction
         self._agent_registry[edge_direction].append(agent.id)
-        # TODO: decide whether
-        self.vote_status  |= VoteStatus.VOTED
-        # TODO: or whether (reset ELECTED implicitly)
-        # self.vote_status  = VoteStatus.VOTED
+        self.vote_status = VoteStatus.VOTED
 
     def get_vote_affected_agents(self):
         """ Return all minority agent_ids from edge. 
@@ -761,17 +788,19 @@ class EdgeContainer(Utils):
         #   and reference to agent's traverse metrics
         self.priority_dict[edge.priority][agent_id] = agent_container
 
-    # NOTE: Development: Test function
     def update_agent_progress(self, agent_id, state):
         """ Update agent_id edge progress and return eta in cell count. """
         progress = self.state2progress[state]
         return self.length - progress -1
 
-    # NOTE: move subsquent to __init__
     def _update_occupancy(self):
+        """ Conduct freeing routine when last active agent leaves edge. """
         if len(self.active_agents) == 0:
-            self.vote = 0
-            self.voted = False
+            edge_direction = self._get_direction()
+            self._reset_vote()
+            for agent in self._agent_registry[-edge_direction]:
+                agent.update_edge_availability(self.id)
+
 
     def exit(self, agent_id):
         """ Remove agent from active_agents and priority_dict. """
@@ -779,7 +808,6 @@ class EdgeContainer(Utils):
         self.priority_dict[prio].pop(agent_id, None)
         self.active_agents.pop(agent_id, None)
         self._update_occupancy()
-        # TODO: reset if last agent left -> indicates that edge can be revoted
 
 
 class MyGraph(Utils):
@@ -986,7 +1014,6 @@ class MyGraph(Utils):
 
     def shortest_path(self, agent):
         """ Update heuristic for agent with agent_id. """
-        import time
         def agent_text():
             return 'Agent{0}: '.format(agent.id), agent.status,
         current = agent.current_node
@@ -1010,6 +1037,11 @@ class MyGraph(Utils):
         debug_message += '({:.4}s)'.format(time.time() - timestamp)
         self.debug(agent_text(), agent.status, debug_message)
 
+    def _find_reactivated_agents(self, agent):
+        if not agent.mode == AgentMode.EXPLORING:
+           return
+        self.shortest_path(agent)
+
     # NOTE: Final placement under rollout.py
     def controls(self):
         controls = dict()
@@ -1017,7 +1049,7 @@ class MyGraph(Utils):
             agent.set_control(controls)
         return controls
 
-    def update(self):
+    def update_agent_states(self):
         """ Update each agent state with most recent flatland states. """
         for agent in self.agents.values():
             agent.update()
