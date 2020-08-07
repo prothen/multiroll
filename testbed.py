@@ -54,7 +54,7 @@ env = RailEnv(
             max_rails_in_city=2,
             ),
         schedule_generator=gen_schedule,
-        number_of_agents=1,
+        number_of_agents=2,
         #malfunction_generator_and_process_data=malfunction_from_params(
         #    params_malfunction),
         obs_builder_object=GlobalObsForRailEnv(),
@@ -72,26 +72,25 @@ env_renderer = RenderTool(env,
 
 
 if __name__ == "__main__":
-    print('Run testbed.')
     env.reset()
     env_renderer.reset()
-    print('Initialise graph.')
+    print('##Testbed: Instantiate MyGraph.')
     t0 = time.time()
     graph.set_env(env)
-    g = graph.MyGraph()
-    print('Graph creation completed!\n\t--> {}s'.format(time.time()-t0))
+    g = graph.MyGraph(debug_is_enabled=True)
+    print('##Testbed: Graph initialised! ({:.4}s)'.format(time.time()-t0))
     for step in range(500):
-        print('It', step)
+        print('##IT', step)
         controls = g.controls()
-        print('Selected control:', controls)
+        print('##Testbed: Apply controls:\n', controls)
         env.step(controls)
         g.update()
         g.visualise(env_renderer)
-        input('Continue?')
+        input('## --> Continue?')
 
     g.visualise(env_renderer)
     env_renderer.gl.show()
-    input('press to close')
+    input('##Testbed: Completed! Press any key to close.')
 
 
 # env.step(dict((a,0) for a in range(env.get_num_agents())))
