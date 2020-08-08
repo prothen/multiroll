@@ -79,6 +79,7 @@ class EdgeContainer(Utils):
         # State to edge direction for container (localise on edge)
         self.state2direction = dict()
 
+    # NOTE: VOTE
     def _vote_result(self):
         """ Return None for unvoted or undecided. """
         if not self.vote_status == VoteStatus.UNVOTED:
@@ -87,6 +88,7 @@ class EdgeContainer(Utils):
             return EdgeDirection.BACKWARD
         return None
 
+    # NOTE: VOTE
     def _get_direction(self, backward):
         """ Return the EdgeDirection for backward argument. """
         if backward:
@@ -116,9 +118,11 @@ class EdgeContainer(Utils):
             self.state2progress[StateControl.state] = progress
             self.state2direction[StateControl.state] = edge_direction
         for state in ingress_states.keys():
+            self.state2progress[state] = -1
             self.state2direction[state] = edge_direction
         self.length = len(path)
 
+    # NOTE: VOTE
     def get_edge_updates(self):
         """ Return vote-preferred edges for corresponding actions.
 
@@ -129,8 +133,7 @@ class EdgeContainer(Utils):
             return dict()
         self.vote_status |= VoteStatus.ELECTED
         if self.vote_status == VoteStatus.UNVOTED:
-            print('get all')
-            return {EdgeActionTyp.ADD: self._edges[self._vote_result()].values()}
+            return {EdgeActionTyp.ADD: self._edges[self._vote_result()]}
         return self._edge_action
 
     def get_edges(self, consider_vote=True):
@@ -139,12 +142,12 @@ class EdgeContainer(Utils):
             Note:
                 If no agent has claimed interest, all edges are returned.
         """
-        #print('EC{}'.format(self.id), '(Vote{})'.format(self.vote))
         if consider_vote:
             self.evaluate_vote()
             return self._edges[self._vote_result()].values()
         return self._edge_registry.values()
 
+    # NOTE: VOTE
     def evaluate_vote(self):
         """ Evaluate voting and stage edges for removal and addition.
 
@@ -160,6 +163,7 @@ class EdgeContainer(Utils):
             self._previous_direction = direction
             return
 
+    # NOTE: VOTE
     def parse_agent_vote(self, state, agent):
         """ Register interest to use an edge in certain direction.
 
@@ -168,13 +172,13 @@ class EdgeContainer(Utils):
                     agent.mode = AgentMode.EXPLORING 
                 once deactivated edge becomes reenabled. (see exit trigger)
         """
-        # print('Agent vote for {}'.format(self.id), '\n\t', agent.edge_container_ids())
         ids = agent.edge_container_ids()
         edge_direction = self.state2direction[state]
         self.vote += edge_direction
         self._agent_registry[edge_direction][agent.id] = None
         self.vote_status = VoteStatus.VOTED
 
+    # NOTE: VOTE
     def _reset_vote(self):
         """ Reset vote and allow all edge directions to be used.
 
@@ -186,6 +190,7 @@ class EdgeContainer(Utils):
         self.vote_status = VoteStatus.UNVOTED
         self.previous_direction = None
 
+    # NOTE: VOTE
     def force_vote(self, edge_direction, agent):
         """ Enforce directional reservation for agents starting on edge. """
         self._reset_vote()
@@ -193,6 +198,7 @@ class EdgeContainer(Utils):
         self._agent_registry[edge_direction][agent.id] = None
         self.vote_status = VoteStatus.VOTED
 
+    # NOTE: VOTE
     def unregister_agent(self, agent_id):
         """ Reserve usage of edge_container in future use. 
 
@@ -206,6 +212,7 @@ class EdgeContainer(Utils):
         """
         self.registered_agents.pop(agent_id, None)
 
+    # NOTE: VOTE
     def register_agent(self, agent_id):
         """ Reserve usage of edge_container in future use. 
 
@@ -216,9 +223,15 @@ class EdgeContainer(Utils):
                 #-> Detect blocked agents and remove themselves from
                     all future sections to maybe free up some sections
                     for other agents.
+
+            Todo:
+                - VOTE : test if to run exit() routine if all future
+                         agents have unregistered and no active agent
+
         """
         self.registered_agents[agent_id] = None
 
+    # NOTE: VOTE
     def enter(self, state, agent_id):
         """ Conduct entry procedure for agent from state.
 
@@ -231,26 +244,31 @@ class EdgeContainer(Utils):
                 dict for rollout.
         """
         self.active_agents[agent_id] = self.agents[agent_id]
-        #   and reference to agent's traverse metrics
-        # self.priority_dict[edge.priority][agent_id] = agent_container
 
     def get_agent_progress(self, agent_id, state):
         """ Update agent_id edge progress and return eta in cell count.
+
+            Note:
+                If the returned eta is zero the agent calling this method
+                will pop a edge_container_id from his path and move to the
+                next.
 
             Note:
                 On zero progress the entry trigger is invoked and on
                 estimated time of arrival (ETA) with eta being zero the
                 exit trigger.
         """
+        a = self.agents[agent_id]
+        sc = self.states[a.state]
         progress = self.state2progress[state]
         if not progress:
             self.enter(state, agent_id)
-        eta = self.length - progress -1
+        eta = self.length - progress - 1
         if not eta:
             self.exit(agent_id)
-            #raise RuntimeError()
         return eta
 
+    # NOTE: VOTE
     def _update_occupancy(self):
         """ Conduct freeing routine when last active agent leaves edge.
 
@@ -259,27 +277,26 @@ class EdgeContainer(Utils):
 
         """
         if not len(self.active_agents) and not len(self.registered_agents):
-            try:
-                #input('\n\n\n###########\n\n\n\tconduct reactivation')
-                edge_direction = self._vote_result()
-                if edge_direction is not None:
-                    edge_direction_reverse = EdgeDirection.reverse(edge_direction)
-                    self._edge_action[EdgeActionType.ADD] = self._edges[edge_direction_reverse]
-                else:
-                    self._edge_action[EdgeActionType.ADD] = self._edge_registry.values()
-                self.edge_reactivation[self.id] = self
-                self._reset_vote()
-                for agent_id in self._agent_registry[edge_direction].copy().keys():
-                    self.agents[agent_id].update_edge_availability(self.id)
-                    self._agent_registry.pop(agent_id, None)
-            except:
-                print('yolo')
+            # NOTE: VOTE - Skip voting and registration
+            return
+            edge_direction = self._vote_result()
+            if edge_direction is not None:
+                edge_direction_reverse = EdgeDirection.reverse(edge_direction)
+                self._edge_action[EdgeActionType.ADD] = self._edges[edge_direction_reverse]
+            else:
+                self._edge_action[EdgeActionType.ADD] = self._edge_registry
+            self.edge_reactivation[self.id] = self
+            self._reset_vote()
+            for agent_id in self._agent_registry[edge_direction].copy().keys():
+                self.agents[agent_id].update_edge_availability(self.id)
+                self._agent_registry[edge_direction].pop(agent_id, None)
 
+    # NOTE: VOTE
     def exit(self, agent_id):
         """ Remove agent from active_agents and priority_dict. """
-        #prio = self.active_agents[agent_id].priority
-        #self.priority_dict[prio].pop(agent_id, None)
+        # prio = self.active_agents[agent_id].priority
+        # self.priority_dict[prio].pop(agent_id, None)
         self.active_agents.pop(agent_id, None)
         self.registered_agents.pop(agent_id, None)
-        self._update_occupancy()
+        # NOTE: VOTE - skip self._update_occupancy()
 
