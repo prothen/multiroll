@@ -6,10 +6,12 @@ import enum
 import time
 import numpy
 import pandas
-import networkx
 import itertools
 import matplotlib
 import collections
+
+
+import networkx
 
 
 from flatland.envs.rail_env import RailEnv
@@ -27,17 +29,26 @@ import graph
 import display
 import observation
 
-DEBUG = False
-H = 50
-W = 50
-N_AGENTS = 100
-N_CITIES = 4
-SEED = 14
-STEP_ACTIVE = False
-PLOT_STEPS = 20
-
 
 numpy.random.seed(1)
+
+
+STEP_ACTIVE = False
+DISPLAY_ACTIVE = True
+PROFILING = True
+DEBUG = False
+PLOT_STEPS = 5
+
+H = 50
+W = 50
+N_STEPS = 500
+N_AGENTS = 40
+# 400 did not work
+# 200 worked: 5ms (just fetching controls)
+N_CITIES = 8
+N_CONNECTIVITY = 32
+SEED = 14
+
 
 params_malfunction = MalfunctionParameters(
         malfunction_rate=30, 
@@ -50,6 +61,7 @@ ratios = {1.: 0.25,
           1. / 3.: 0.25,
           1. / 4.: 0.25} 
 gen_schedule = sparse_schedule_generator({1:1})
+
 
 env = RailEnv(
         width=H,
@@ -78,19 +90,21 @@ env_renderer = RenderTool(env,
                           screen_height=1080,
                           screen_width=1920)
 
-import time
 timestamp = time.time()
+
 
 def start_timeme():
     global timestamp
     timestamp = time.time()
-    
+
+
 def timeme(message):
     global timestamp
     print(message, '\n\t({:4}s)'.format(time.time() - timestamp))
     timestamp = time.time()
 
-if __name__ == "__main__":
+def main():
+    global DISPLAY_ACTIVE
     timeme('start')
     env.reset()
     env_renderer.reset()
@@ -98,28 +112,48 @@ if __name__ == "__main__":
     print('##Testbed: Instantiate MyGraph.')
 
     graph.set_env(env)
-    g = graph.MyGraph(debug_is_enabled=DEBUG)
+    g = graph.MyGraph(env_renderer, debug_is_enabled=DEBUG)
+
     timeme('Graph Setup: ')
-    #print('##Testbed: Graph initialised! ({:.4}s)'.format(time.time()-t0))
-    for step in range(500):
+    for step in range(N_STEPS):
         print('##IT', step)
         start_timeme()
         controls = g.controls()
         timeme('Graph Controls: ')
-        #print('##Testbed: Apply controls:\n', controls)
+        print('##Testbed: Apply controls:\n', controls)
         env.step(controls)
         timeme('Env step: ')
         g.update_agent_states()
         timeme('Graph Update agents: ')
-        if not step % PLOT_STEPS:
-            g.visualise(env_renderer)
+        print(DISPLAY_ACTIVE)
+        print(type(DISPLAY_ACTIVE))
+        if DISPLAY_ACTIVE:
+            if (not step % PLOT_STEPS):
+                print('visualise request')
+                aoutohaeun
+                #g.visualise()
         timeme('Graph visualise: ')
-        if STEP_ACTIVE:
-            input('## --> Continue?')
+        #if STEP_ACTIVE:
+        #    input('## --> Continue?')
 
-    g.visualise(env_renderer)
-    env_renderer.gl.show()
+    g.visualise(show=True)
     input('##Testbed: Completed! Press any key to close.')
 
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
-# env.step(dict((a,0) for a in range(env.get_num_agents())))
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('--display', type=str2bool, dest='display_active', help='Enable visualisation', default=False)
+
+if __name__ == "__main__":
+    args = parser.parse_args()
+    DISPLAY_ACTIVE = args.display_active
+    main()
