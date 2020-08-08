@@ -37,6 +37,7 @@ from coordinate import *
 from agent import *
 from edge import *
 
+import display
 
 class MyGraph(Utils):
     """Container for graph related actions.
@@ -47,12 +48,20 @@ class MyGraph(Utils):
         Note: / TODO:
             Maybe easier to maintain two graphs (one complete and a subset 
             dynamically updated)
+
+        Todo: 
+            - Use all_shortest_path computation 
+            - Use graph_complete mirror and 
+                - use graph_complete.copy() to reset dynamic?
     """
-    def __init__(self, debug_is_enabled=None):
+    def __init__(self, env_renderer=None, debug_is_enabled=None):
         self.switch_debug_mode(debug_is_enabled)
-        self.visualisation_is_enabled = True  #NOTE: 'debug' in production stage
+        self.visualisation_is_enabled = True
+
+        display.set_env_renderer(env_renderer)
 
         self._graph = networkx.DiGraph()
+        self._graph_complete = networkx.DiGraph()
         self.graph_activity = GraphActivity.ZERO
 
         self._initialise_agents()
@@ -185,15 +194,25 @@ class MyGraph(Utils):
                 Remove edge_containers from voting, if active_agents on edge
                 (e.g.: from init)
         """
-        # NOTE: check computation time and profile graph update methods
-        timestamp = time.time()
+        if not consider_vote:
+            self._graph_complete.clear()
+            for edge_container in self.edges.values():
+                edges = edge_container.get_edges(consider_vote=False)
+                for edge in edges:
+                    self._graph_complete.add_edge(*edge.pair, length=edge.length)
+            self._graph = self._graph_complete.copy()
+            return
+            # path = networkx.shortest_path(self._graph_complete, weight='length')
+            # TODO: testpath = networkx.all_shortest_path(self._graph_complete
+            # TODO: remove plotting -> add all_path_computation and visualise output
+            return
+        # TODO: in order to reset the graph simply copy from the shadow (self._graph_complete)
+        # NOTE: remove subsequent
         self._graph.clear()
         for edge_container in self.edges.values():
             edges = edge_container.get_edges(consider_vote=consider_vote)
             for edge in edges:
                 self._graph.add_edge(*edge.pair, length=edge.length)
-        print('Reset graph in {:.4}s'.format(time.time() - timestamp))
-        # print(self._graph.edges())
 
     def _update_agent_heuristics(self, optimal=True):
         """ Compute shortest path for each agent. """
@@ -232,6 +251,14 @@ class MyGraph(Utils):
         for agent_id, agent in enumerate(self.env.agents):
             self.agents[agent_id] = AgentContainer(agent_id, agent)
 
+    def _all_total_shortest_path(self):
+        """Return all shortest path for all edges. """
+        s = networkx.all_shortest_path(self._graph_complete)
+
+    def _shortest_path(self, start, goal):
+        """ Parse arguments to networkx implementation. """
+        return networkx.shortest_path(self._graph, start, goal, 'length')
+
     def _shortest_path(self, start, goal):
         """ Parse arguments to networkx implementation. """
         return networkx.shortest_path(self._graph, start, goal, 'length')
@@ -269,6 +296,10 @@ class MyGraph(Utils):
         for edge_container in self.edge_reactivation.values():
             new_edges = edge_container.get_edge_updates()
             for action, edges in new_edges.items():
+                print(edges)
+                if not len(edges):
+                    print('skip')
+                    continue
                 if action == EdgeActionType.ADD:
                     for edge in edges.values():
                         self._graph.add_edge(*edge.pair, length=edge.length)
@@ -300,6 +331,7 @@ class MyGraph(Utils):
     def controls(self):
         controls = dict()
         self.graph_activity = GraphActivity.ZERO
+        #self._update_agent_heuristics(optimal=True)
         for agent in self.agents.values():
             if self._is_agent_exploring(agent):
                 agent.set_control(controls)
@@ -308,11 +340,45 @@ class MyGraph(Utils):
             #    print('Stale graph')
             #    controls[agent.id] = self.states[agent.state][0].control
             controls[agent.id] = Control.S
-        print('is active?')
-        print(self.graph_activity)
+        print('GraphActivity: ', self.graph_activity)
         if self.graph_activity == GraphActivity.ZERO:
-            self._create_graph(consider_vote=False)
+            self._graph = self._graph_complete.copy()
+            #self._create_graph(consider_vote=False)
             self._update_agent_heuristics(optimal=True)
+            self._conduct_vote()
+            #self.debug('Recompute heuristics with direction constraints')
+            self._create_graph(consider_vote=True)
+            self._update_agent_heuristics()
+            #import random
+            #agent = random.choice(list(self.agents.values()))
+            #controls_i = self.states[agent.state].controls
+            # print('select from controls')
+            #print(controls_i)
+            #controls[agent.id] = random.choice(controls_i).control
+            #for agent in self.agents.values():
+            #    agent.mode = AgentMode.EXPLORING
+        for agent in self.agents.values():
+            #continue
+            if agent.mode == AgentMode.ACTIVE:
+                # display.show_states([agent.state], Color.RED, Dimension.RED)
+                #display.show_states([agent.state], Color.STATE, Dimension.STATE)
+                #display.show()
+
+                sc = self.states[agent.state]
+                coc = sc.coc
+                co = coc.coordinate
+                control_bits = self.grid[co]
+
+                #print('State: {}'.format(agent.state))
+                #print('GRID: {}'.format(self.grid[co]))
+                #print('BITS', bin(control_bits))
+                #print('EDGES: {}'.format(agent.edge_container_ids()))
+                #e_id = agent.edge_container_ids()[0]
+                #ec = self.edges[e_id]
+                #print(ec.path)
+                #print('AGENT{}: '.format(agent.id), controls[agent.id])
+                #print('Available COC: {}'.format(coc.controls))
+                #print('Available SC: {}'.format(self.states[agent.state].controls))
         return controls
 
     def update_agent_states(self):
@@ -320,13 +386,14 @@ class MyGraph(Utils):
         for agent in self.agents.values():
             agent.update()
 
-    def visualise(self, env_renderer):
+    def visualise(self, show=False):
         """ Call display utility methods and visualise metrics and states. """
         if self.visualisation_is_enabled:
-            import display
             # define agent_ids to visualise
             # TODO: visualise agent path -> heuristic keys 
-            display.show_agents(env_renderer, self.agents.values())
+            display.show_agents(self.agents.values())
+            if show:
+                display.show()
 
 
 if __name__ == "__main__":
