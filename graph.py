@@ -39,6 +39,7 @@ from edge import *
 
 import display
 
+
 class MyGraph(Utils):
     """Container for graph related actions.
 
@@ -274,6 +275,7 @@ class MyGraph(Utils):
                 sp = self._shortest_path(current, target)
                 agent.mode = AgentMode.ACTIVE
                 agent.update_path(sp)
+                print(sp)
                 debug_message = 'SUCCESS! '
                 debug_message += '{} '.format(target)
                 debug_message += '({:.4}s)'.format(time.time() - timestamp)
@@ -289,6 +291,9 @@ class MyGraph(Utils):
         debug_message += '{} '.format(target)
         debug_message += '({:.4}s)'.format(time.time() - timestamp)
         self.debug(agent_text(), agent.status, debug_message)
+        # NOTE: with vote disabled this graph is complete at all time
+        print('Infeasible for given path: will never find a target??')
+        raise RuntimeError()
 
     # NOTE: VOTE
     def _update_graph_edges(self):
@@ -336,14 +341,27 @@ class MyGraph(Utils):
         controls = dict()
         # self.graph_activity = GraphActivity.ZERO
         # self._update_agent_heuristics(optimal=True)
+        i = 0
+
         for agent in self.agents.values():
-            if self._is_agent_exploring(agent):
-                agent.set_control(controls)
+            print('Agent', agent.id, ': ', agent._agent.status, ' ', agent.state)
+            if agent._agent.status == flatland.envs.agent_utils.RailAgentStatus.DONE_REMOVED:
+                controls[agent.id] = Control.S
+                i+=1
                 continue
+            #if agent.mode == AgentMode
+            #print('Agent'.agent.id,': ', agent.mode)
+            agent.set_control(controls)
+            # TODO: check how flatland parses controls and 
+            #       whether agent_id still active
+            #if self._is_agent_exploring(agent):
+            #    agent.set_control(controls)
+            #    continue
             #if self.graph_activity == GraphActivity.ZERO:
             #    print('Stale graph')
             #    controls[agent.id] = self.states[agent.state][0].control
-            controls[agent.id] = Control.S
+        #print(controls)
+        print('Agents in goal:', i)
         return controls
         print('GraphActivity: ', self.graph_activity)
         if self.graph_activity == GraphActivity.ZERO:
@@ -391,14 +409,11 @@ class MyGraph(Utils):
         for agent in self.agents.values():
             agent.update()
 
-    def visualise(self, show=False):
+    def visualise(self):
         """ Call display utility methods and visualise metrics and states. """
         if self.visualisation_is_enabled:
-            # define agent_ids to visualise
-            # TODO: visualise agent path -> heuristic keys 
             display.show_agents(self.agents.values())
-            if show:
-                display.show()
+            display.show()
 
 
 if __name__ == "__main__":
