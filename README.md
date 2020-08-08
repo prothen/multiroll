@@ -22,6 +22,11 @@ Install the dependencies with
 pip install --requirements.txt
 ```
 
+And install the rollout package with
+```
+pip install .
+```
+
 ## Contribution
 **Author**: Philipp Rothenhäusler (philipp.rothenhaeusler a t gmail.com)
 
