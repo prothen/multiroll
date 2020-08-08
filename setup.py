@@ -6,10 +6,10 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="rollout",
-    version="0.0.1",
-    author="Example Author",
-    author_email="author@example.com",
-    description="A small example package",
+    version="0.0.8",
+    author="Philipp Rothenhäusler",
+    author_email="philipp.rothenhaeusler@gmail.com",
+    description="A multi-agent rollout implementation targeted on the Flatland Neurips 2020 challenge.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/pypa/sampleproject",
@@ -21,10 +21,3 @@ setuptools.setup(
     ],
     python_requires='>=3.6',
 )
-#import distutils
-#from distutils.core import setup
-#
-#setup(name='rollout',
-#                     version='1.0',
-#                     py_modules=['rollout'],
-# #                    )
