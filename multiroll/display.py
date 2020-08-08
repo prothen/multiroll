@@ -3,7 +3,7 @@
 import networkx
 import matplotlib.pyplot
 
-from rollout.constants import *
+from .constants import *
 
 
 env_renderer = None

@@ -1,10 +1,10 @@
 #!/bin/env python
 
 
-from rollout.constants import *
-from rollout.framework import *
+from .constants import *
+from .framework import *
 
-import rollout.simulator
+import .simulator
 
 
 class Rollout:

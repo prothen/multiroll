@@ -1,10 +1,10 @@
 #!/bin/env python
 
 
-from rollout.constants import *
-from rollout.framework import *
-from rollout.coordinate import *
-from rollout.agent import *
+from .constants import *
+from .framework import *
+from .coordinate import *
+from .agent import *
 
 
 class EdgeContainer(Utils):

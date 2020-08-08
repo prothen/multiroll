@@ -2,7 +2,7 @@
 
 import numpy
 
-from rollout.constants import *
+from .constants import *
 
 class GlobalContainer(object):
     # Define environment

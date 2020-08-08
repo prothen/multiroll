@@ -25,9 +25,12 @@ from flatland.envs.malfunction_generators import malfunction_from_params, Malfun
 
 from flatland.utils.rendertools import AgentRenderVariant
 
-from rollout import *
 
-from rollout.timeme import *
+import multiroll
+
+from multiroll import *
+
+from multiroll.timeme import *
 
 
 numpy.random.seed(1)
@@ -73,7 +76,7 @@ env = RailEnv(
         number_of_agents=N_AGENTS,
         #malfunction_generator_and_process_data=malfunction_from_params(
         #    params_malfunction),
-        obs_builder_object=rollout.observation.PlaceholderObs(),
+        obs_builder_object=multiroll.observation.PlaceholderObs(),
         remove_agents_at_target=True,
         record_steps=False
         )
@@ -95,7 +98,7 @@ def main():
     env_renderer.reset()
     timeme('Flatland - Reset: ')
 
-    g = rollout.graph.MyGraph(env, env_renderer, debug_is_enabled=DEBUG)
+    g = multiroll.graph.MyGraph(env, env_renderer, debug_is_enabled=DEBUG)
     timeme('Graph Setup: ')
     if DISPLAY_ACTIVE or STEP_ACTIVE:
         g.visualise()
@@ -129,7 +132,7 @@ def main():
         input('##Testbed: Completed! Press any key to close.')
 
 if __name__ == "__main__":
-    args = rollout.parser.parse_args()
+    args = multiroll.parser.parse_args()
     DISPLAY_ACTIVE = args.display_active
     STEP_ACTIVE = args.step_active
 

@@ -1,7 +1,7 @@
 #!/bin/env python
 
-from rollout.constants import *
-from rollout.framework import *
+from .constants import *
+from .framework import *
 
 
 class CoordinateContainer(Utils):

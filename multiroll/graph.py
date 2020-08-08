@@ -31,14 +31,14 @@ from typing import Optional
 import flatland
 
 
-from rollout import *
-from rollout.constants import *
-from rollout.framework import *
-from rollout.coordinate import *
-from rollout.agent import *
-from rollout.edge import *
+from multiroll import *
+from .constants import *
+from .framework import *
+from .coordinate import *
+from .agent import *
+from .edge import *
 
-class MyGraph(rollout.framework.Utils):
+class MyGraph(Utils):
     """Container for graph related actions.
 
         Note:
@@ -57,9 +57,9 @@ class MyGraph(rollout.framework.Utils):
         self.switch_debug_mode(debug_is_enabled)
         self.visualisation_is_enabled = True
 
-        rollout.framework.set_env(env)
+        multiroll.framework.set_env(env)
 
-        rollout.display.set_env_renderer(env_renderer)
+        multiroll.display.set_env_renderer(env_renderer)
 
         self._graph = networkx.DiGraph()
         self._graph_complete = networkx.DiGraph()
@@ -417,8 +417,8 @@ class MyGraph(rollout.framework.Utils):
     def visualise(self):
         """ Call display utility methods and visualise metrics and states. """
         if self.visualisation_is_enabled:
-            rollout.display.show_agents(self.agents.values())
-            rollout.display.show()
+            multiroll.display.show_agents(self.agents.values())
+            multiroll.display.show()
 
 
 if __name__ == "__main__":

@@ -18,7 +18,7 @@ pip install --requirements.txt
 
 And install the rollout package with
 ```
-pip install .
+python setup.py install
 ```
 
 ## Profiling
