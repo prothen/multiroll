@@ -15,6 +15,7 @@ StateControl = collections.namedtuple('State', ['state', 'control'])
 # Store a pair of nodes for condensed edge creation
 Pair = collections.namedtuple('Pair', ['vertex_1', 'vertex_2'])
 # Define an edge with path priority of goal traversibility and its collective container
+# TODO: having priority, path, length, container_id as attr dict could make it immediate networkx compatible
 Edge = collections.namedtuple('Edge', ['pair', 'priority', 'path', 'length', 'container_id'])
 
 
@@ -151,3 +152,41 @@ Simulate[Control.R] = (lambda state, control: Dynamics[control.direction](state)
 Simulate[Control.S] = (lambda state, control: State(state.r, state.c, state.d))
 
 
+class Color:
+    STATE = (255,0,0,)
+    TARGET = (0,255,0)
+    DEBUG = (0,0,255)
+
+
+class Dimension:
+    STATE = 30
+    TARGET = 30
+    DEBUG = 100
+
+
+# Plot related
+Transition2Color = dict()
+Transition2Color[Direction.N] = 'r'
+Transition2Color[Direction.E] = 'r'
+Transition2Color[Direction.S] = 'r'
+Transition2Color[Direction.W] = 'r'
+
+
+# Plot related
+Direction2Target = dict()
+Direction2Target[Direction.N] = [-1, 0]
+Direction2Target[Direction.E] = [0, 1]
+Direction2Target[Direction.S] = [1, 0]
+Direction2Target[Direction.W] = [1, -1]
+"""
+    fl/utils/renderutils
+    l.137: grid2pixels
+        r -> -y
+        c -> x
+
+    fl/utils/graphicslayer
+    l. 52: color rgb tuple 255 (int, int, int)
+
+    fl/utils/:
+        GraphicsLayer -> PILGL -> PILSVG  -> PGL 
+"""
