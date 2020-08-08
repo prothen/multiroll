@@ -4,13 +4,11 @@ import numpy
 
 from flatland.core.env_observation_builder import ObservationBuilder
 
-class Empty(ObservationBuilder):
-    def __init__(self):
-        super().__init__()
-        print(self.__dict__)
+class PlaceholderObs(ObservationBuilder):
 
     def reset(self):
-        pass
+        return
 
     def get(self, handle: int = 0):
-        return numpy.ones((self.env.num_agents()))
+        return numpy.empty((1))#numpy.ones((self.env.num_agents()))
+

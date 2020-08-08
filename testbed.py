@@ -43,8 +43,8 @@ PROFILING = True
 DEBUG = True
 PLOT_STEPS = 5
 
-H = 150
-W = 150
+H = 50
+W = 50
 N_STEPS = 100
 N_AGENTS = 1
 # 400 did not work
@@ -60,10 +60,6 @@ params_malfunction = MalfunctionParameters(
         max_duration=20  
         )
 
-ratios = {1.: 0.25,  
-          1. / 2.: 0.25,
-          1. / 3.: 0.25,
-          1. / 4.: 0.25} 
 gen_schedule = sparse_schedule_generator({1:1})
 
 class SimpleObs(ObservationBuilder):
@@ -95,35 +91,35 @@ env = RailEnv(
         number_of_agents=N_AGENTS,
         #malfunction_generator_and_process_data=malfunction_from_params(
         #    params_malfunction),
-        obs_builder_object=SimpleObs(),  #GlobalObsForRailEnv(),
+        obs_builder_object=GlobalObsForRailEnv(),
         remove_agents_at_target=True,
-        record_steps=True
+        record_steps=False
         )
 
 
 # agent_render_variant=AgentRenderVariant.BOX_ONLY,
 env_renderer = RenderTool(env,
                           gl='PGL',
-                          show_debug=False,
+                          show_debug=True,
                           screen_height=1080,
                           screen_width=1920)
 
 
-timeme_reset()
-env.reset()
-env_renderer.reset()
-timeme('Flatland - Reset: ')
-
-graph.set_env(env)
-g = graph.MyGraph(env_renderer, debug_is_enabled=DEBUG)
-
-timeme('Graph Setup: ')
-
 
 
 def main():
+    timeme_reset()
+    env.reset()
+    env_renderer.reset()
+    timeme('Flatland - Reset: ')
+
+    graph.set_env(env)
+    g = graph.MyGraph(env_renderer, debug_is_enabled=DEBUG)
+    timeme('Graph Setup: ')
     if DISPLAY_ACTIVE or STEP_ACTIVE:
+        g.visualise()
         input('####Start testbed?')
+
     timeme_reset()
     for step in range(N_STEPS):
         print('##IT', step)
@@ -138,8 +134,8 @@ def main():
         timeme('Flatland - Env.step(): ')
 
 
-        if DISPLAY_ACTIVE and (not step % PLOT_STEPS):
-                g.visualise()
+        if DISPLAY_ACTIVE and (not step % PLOT_STEPS): 
+            g.visualise()
         timeme('Graph - Visualise: ')
 
         if STEP_ACTIVE:
@@ -147,7 +143,7 @@ def main():
             timeme_reset()
 
     if DISPLAY_ACTIVE:
-        g.visualise(show=True)
+        g.visualise()
         input('##Testbed: Completed! Press any key to close.')
 
 if __name__ == "__main__":
