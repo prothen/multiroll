@@ -214,7 +214,7 @@ class MyGraph(Utils):
             for edge in edges:
                 self._graph.add_edge(*edge.pair, length=edge.length)
 
-    def _update_agent_heuristics(self, optimal=True):
+    def _update_agents_heuristics(self, optimal=True):
         """ Compute shortest path for each agent. """
         for agent in self.agents.values():
             agent.reset_path()
@@ -239,12 +239,12 @@ class MyGraph(Utils):
         self._locate_agents_in_graph()
         self.debug('Initialise graph')
         self._create_graph(consider_vote=False)
-        self._update_agent_heuristics(optimal=True)
+        self._update_agents_heuristics(optimal=True)
 
-        self._conduct_vote()
-        self.debug('Recompute heuristics with direction constraints')
-        self._create_graph(consider_vote=True)
-        self._update_agent_heuristics()
+        #self._conduct_vote()
+        #self.debug('Recompute heuristics with direction constraints')
+        #self._create_graph(consider_vote=True)
+        #self._update_agent_heuristics()
 
     def _initialise_agents(self):
         """ Parse flatland metrics from agents. """
@@ -290,15 +290,14 @@ class MyGraph(Utils):
         debug_message += '({:.4}s)'.format(time.time() - timestamp)
         self.debug(agent_text(), agent.status, debug_message)
 
+    # NOTE: VOTE
     def _update_graph_edges(self):
         """ Update graph by adding and removing voted edges graph. """
         pop_list = list()
         for edge_container in self.edge_reactivation.values():
             new_edges = edge_container.get_edge_updates()
             for action, edges in new_edges.items():
-                print(edges)
                 if not len(edges):
-                    print('skip')
                     continue
                 if action == EdgeActionType.ADD:
                     for edge in edges.values():
@@ -311,8 +310,12 @@ class MyGraph(Utils):
             self.edge_reactivation.pop(pop, None)
         return
 
+    # NOTE: VOTE - 
     def _is_agent_exploring(self, agent):
-        print('Agent{}'.format(agent.id), agent.mode, agent._agent.status)
+        """ Test if agent has interest in recently reactivated edge. """
+        # print('Agent{}'.format(agent.id), agent.mode, agent._agent.status)
+        # TODO: add agent.status, agent_id from flatland)
+        # TODO: show debug output from rail_env
         if (agent.mode == AgentMode.STALE or
             agent._agent.status == flatland.envs.agent_utils.RailAgentStatus.DONE_REMOVED):
             # print('skip {}'.format(agent.id))
@@ -329,9 +332,10 @@ class MyGraph(Utils):
 
     # NOTE: Final placement under rollout.py
     def controls(self):
+        """ Return control dictionary for all agents. """
         controls = dict()
-        self.graph_activity = GraphActivity.ZERO
-        #self._update_agent_heuristics(optimal=True)
+        # self.graph_activity = GraphActivity.ZERO
+        # self._update_agent_heuristics(optimal=True)
         for agent in self.agents.values():
             if self._is_agent_exploring(agent):
                 agent.set_control(controls)
@@ -340,6 +344,7 @@ class MyGraph(Utils):
             #    print('Stale graph')
             #    controls[agent.id] = self.states[agent.state][0].control
             controls[agent.id] = Control.S
+        return controls
         print('GraphActivity: ', self.graph_activity)
         if self.graph_activity == GraphActivity.ZERO:
             self._graph = self._graph_complete.copy()
