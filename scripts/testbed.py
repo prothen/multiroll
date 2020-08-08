@@ -37,8 +37,6 @@ H = 50
 W = 50
 N_STEPS = 100
 N_AGENTS = 5
-# 400 did not work
-# 200 worked: 5ms (just fetching controls)
 N_CITIES = 8
 N_CONNECTIVITY = 8
 SEED = 14
@@ -65,14 +63,11 @@ env = RailEnv(
         )
 
 
-# agent_render_variant=AgentRenderVariant.BOX_ONLY,
 env_renderer = RenderTool(env,
                           gl='PGL',
                           show_debug=True,
                           screen_height=1080,
                           screen_width=1920)
-
-
 
 
 def main():
@@ -86,8 +81,8 @@ def main():
     if DISPLAY_ACTIVE or STEP_ACTIVE:
         g.visualise()
         input('####Start testbed?')
+        timeme_reset()
 
-    timeme_reset()
     for step in range(N_STEPS):
         print('##IT', step)
 
