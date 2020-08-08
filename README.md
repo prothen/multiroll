@@ -5,9 +5,10 @@ Railway rollout for flatland Neurips Challenge 2020
 ## Usage
 Execute with
 ```
-python testbed.py --display True
+python testbed.py --display True --step True
 ```
-where the `--display` flag allows to disable and enable the visualisation via GUI.
+- the flag `--display` allows to disable and enable the visualisation via GUI,
+- the flag `--skip` allows to step through each environment step.
 
 And profile the code performance using
 ```
@@ -16,12 +17,15 @@ cd profiler && ./generate_pstats_profile.sh
 which will show a graphical representation of the most time consuming methods.
 
 ## The environment
-Install with `pip install flatland-rl` or clone
+Install the dependencies with
 ```
-git clone http://gitlab.aicrowd.com/flatland/flatland.git
+pip install --requirements.txt
 ```
-and install with `python setup.py install` in the root of the repository.
 
+## Contribution
+**Author**: Philipp Rothenhäusler (philipp.rothenhaeusler a t gmail.com)
 
-## References
-- [Flatland information metrics](https://flatland.aicrowd.com/faq/env.html)
+**Maintainer**: Philipp Rothenhäusler (philipp.rothenhaeusler a t gmail.com)
+
+## LICENSE
+By default all rights are reserved, if you would like to use this project with a specific license, feel free to contact us.

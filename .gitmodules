@@ -7,3 +7,6 @@
 #[#submodule "profiler"]
 #	path = profiler
 #	url = https://gist.github.com/e0c724f00f89fc9161a2f7ad5bcd1913.git
+[submodule "resources/profiler"]
+	path = resources/profiler
+	url = https://gist.github.com/e0c724f00f89fc9161a2f7ad5bcd1913.git
