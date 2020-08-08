@@ -13,21 +13,14 @@ import collections
 
 import networkx
 
-
 from flatland.envs.rail_env import RailEnv
+from flatland.utils.rendertools import RenderTool
+from flatland.utils.rendertools import AgentRenderVariant
 from flatland.envs.rail_generators import sparse_rail_generator
 from flatland.envs.schedule_generators import sparse_schedule_generator
 
-from flatland.core.env_observation_builder import ObservationBuilder
-from flatland.envs.observations import TreeObsForRailEnv, GlobalObsForRailEnv
-from flatland.utils.rendertools import RenderTool, AgentRenderVariant
-from flatland.envs.malfunction_generators import malfunction_from_params, MalfunctionParameters
-
-from flatland.utils.rendertools import AgentRenderVariant
-
 
 from multiroll import *
-
 from multiroll.timeme import *
 
 
@@ -43,19 +36,13 @@ PLOT_STEPS = 5
 H = 50
 W = 50
 N_STEPS = 100
-N_AGENTS = 10
+N_AGENTS = 5
 # 400 did not work
 # 200 worked: 5ms (just fetching controls)
 N_CITIES = 8
 N_CONNECTIVITY = 8
 SEED = 14
 
-
-params_malfunction = MalfunctionParameters(
-        malfunction_rate=30, 
-        min_duration=3,  
-        max_duration=20  
-        )
 
 gen_schedule = sparse_schedule_generator({1:1})
 
@@ -72,8 +59,6 @@ env = RailEnv(
             ),
         schedule_generator=gen_schedule,
         number_of_agents=N_AGENTS,
-        #malfunction_generator_and_process_data=malfunction_from_params(
-        #    params_malfunction),
         obs_builder_object=multiroll.observation.PlaceholderObs(),
         remove_agents_at_target=True,
         record_steps=False

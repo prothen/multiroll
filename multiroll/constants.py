@@ -10,12 +10,11 @@ Coordinate = collections.namedtuple('Coordinate', ['r', 'c'])
 State = collections.namedtuple('State', ['r', 'c', 'd'])
 # Defines the tuple of both the control and its corresponding direction (state-dependent)
 ControlDirection = collections.namedtuple('ControlDirection', ['control', 'direction'])
-# Defines a state control tuple where control is a ControlDirection type (track duplicate EdgeCreation)
+# Defines a state control tuple where control is a ControlDirection type
 StateControl = collections.namedtuple('State', ['state', 'control'])
 # Store a pair of nodes for condensed edge creation
 Pair = collections.namedtuple('Pair', ['vertex_1', 'vertex_2'])
 # Define an edge with path priority of goal traversibility and its collective container
-# TODO: having priority, path, length, container_id as attr dict could make it immediate networkx compatible
 Edge = collections.namedtuple('Edge', ['pair', 'priority', 'path', 'length', 'container_id'])
 
 
@@ -54,44 +53,6 @@ class StateType(enum.IntEnum):
     NODE = 1
     INTERSECTION = 3
     VERTEX = 5
-
-
-class EdgeDirection(enum.IntEnum):
-    FORWARD = 1
-    BACKWARD = -1
-
-    @staticmethod
-    def reverse(edge_direction):
-        if EdgeDirection.FORWARD:
-            return EdgeDirection.BACKWARD
-        return EdgeDirection.FORWARD
-
-
-class EdgeActionType(enum.IntEnum):
-    """ Possible edge related actions on graph. """
-    NONE = 0
-    ADD = 1
-    REMOVE = 2
-
-
-class VoteStatus(enum.IntEnum):
-    """ Semantic structuring of voting related states. 
-
-        Note:
-            Whenever VOTED or UNVOTED is set, ELECTED
-            is reset implicitly. Setting ELECTED is
-            done only through '|' and tested through
-            '&'.
-                e.g. if var & VoteStatus.ELECTED
-    """
-    # No votes submitted
-    NONE = 0
-    # Votes received and either pending or elected (in graph)
-    ELECTED = 1
-    # Votes received and some prioritisation is expected
-    VOTED = 2
-    # No votes received and all edges are to be returned
-    UNVOTED = 4
 
 
 class AgentStatus(enum.IntEnum):

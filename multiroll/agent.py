@@ -87,18 +87,8 @@ class AgentContainer(Utils):
         self.target_nodes = self.target_container.valid_states
         self.status |= AgentStatus.HAS_TARGET
 
-    # NOTE: VOTE
-    def update_edge_availability(self, edge_container_id):
-        """ Test if this agent is interested to hear about the reactivation of
-            a previously voting-related denied edge.
-        """
-        if not self.mode == AgentMode.ACTIVE:
-            self.mode = AgentMode.EXPLORING
-
     def reset_path(self):
         """ """
-        # Here first unregister from the whole previous path
-        self.unregister_edges()
         self.heuristic = dict()
         self.path = list()
         self.path_edge_containers = list()
@@ -124,9 +114,6 @@ class AgentContainer(Utils):
             self.heuristic.update(edge_container.path[edge_direction])
             self.current_node = edge_container.goal_state[edge_direction]
             self.path_edge_containers.append(edge_container)
-            # NOTE: debug -> remove for production
-            # print('Edge direction initialised: {}'.format(edge_direction))
-            # print('On Edge container: {}'.format(edge_container_id))
             return
         self.current_node = self.state
 
@@ -157,53 +144,6 @@ class AgentContainer(Utils):
             self.heuristic.update(edge_path)
             self.heuristic.update([(node, control)])
             self.status = AgentStatus.FEASIBLE_PATH
-        self.register_edges()
-
-    # NOTE: VOTE
-    def vote_edges(self):
-        """ Register interest in using edge_container_ids from its path. 
-
-            Note:
-                store initial heuristic (isolated optimal shortest path) in
-                attribute and recover
-
-        """
-        if not self.status == AgentStatus.FEASIBLE_PATH:
-            print('Agent has been asked to vote but does not have feasible path')
-            #raise RuntimeError()
-        for edge_container_id, node in zip(self.edge_container_ids(),
-                                           self.path_nodes):
-            self.edges[edge_container_id].parse_agent_vote(node, self)
-
-    # NOTE: VOTE
-    def unregister_edges(self):
-        """ Unregister to all  edge_containers on path.
-
-            Note:
-                This is done once whenever the agent receives a
-                new path reset via reset_path.
-
-            Todo:
-                Avoid collisions while maintaining dynamic
-                reconfigurability for freed edge_containers.
-        """
-        for edge_container in self.path_edge_containers:
-            edge_container.unregister_agent(self.id)
-
-    # NOTE: VOTE
-    def register_edges(self):
-        """ Register to all  edge_containers on path.
-
-            Note:
-                This is done once whenever the agent receives a
-                new path via update_path.
-
-            Todo:
-                Avoid collisions while maintaining dynamic
-                reconfigurability for freed edge_containers.
-        """
-        for edge_container in self.path_edge_containers:
-            edge_container.register_agent(self.id)
 
     def update(self):
         """ Update agent state with flatland environment state. """
@@ -245,21 +185,4 @@ class AgentContainer(Utils):
             return
         controls[self.id] = self.heuristic[self.state].control
         self.update_edge_progress(self.path_edge_containers[0])
-        #print(self.heuristic)
-        #print('Current control:', self.heuristic[self.state].control)
-        #print(controls[self.id])
-        # print('Agent{}: '.format(self.id), '\nPath-IDs:{}'.format(self.edge_container_ids()))
-
-
-class AgentTraverse(GlobalContainer):
-    """ Utility class for maintaining overview of useful metrics. """
-
-    def __init__(self, agent_id, edge):
-        self.id = agent_id
-        # Fetch agent container
-        self.agent = self.agents[agent_id]
-        # Traversal priority from edge
-        self.priority = edge.priority
-        self.edge = edge
-        self.speed = self.agent.speed
 

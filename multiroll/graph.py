@@ -57,7 +57,7 @@ class MyGraph(Utils):
         self.switch_debug_mode(debug_is_enabled)
         self.visualisation_is_enabled = True
 
-        multiroll.framework.set_env(env)
+        set_env(env)
 
         multiroll.display.set_env_renderer(env_renderer)
 
@@ -128,10 +128,8 @@ class MyGraph(Utils):
             self.edge_collection[StateControl(ingress_state, control)] = edge
             edges.append(edge)
             if goal_state in self.states[ingress_state].traverse.keys():
-                # Possible to have multiple edges from one state leading to another edge
-                # This can lead to mismatched translation of networkx path tuples to
-                # corresponding edge_container_ids
-                # print('duplicate edges encountered')
+                # NOTE: Cause failure to investigate if multiple edges to same
+                #       goal state. Could overwrite edge in networkX tuples.
                 raise RuntimeError()
             self.states[ingress_state].traverse[goal_state] = control
 
@@ -176,77 +174,35 @@ class MyGraph(Utils):
             coordinate = Coordinate(r, c)
             CoordinateContainer(id_railway, coordinate)
 
-    def _create_graph(self, consider_vote=True):
+    def _create_graph(self):
         """ Initialise networkx graph with all edges.
 
-            Note:
-                This method is for clean recreation of complete graph with
-                voted edges.
+            Todo:
+                - use
+                    path = networkx.shortest_path(self._graph_complete, weight='length')
+                    testpath = networkx.all_shortest_path(self._graph_complete
 
-                It is recommended to rely on _update_graph automation and
-                automated edge reactivation on agent exiting the edge_container.
-
-                Recommended to first run vote edges and update edge_containers
-                to remove deadlocks.
-
-                Consider_vote flag allows to select only prioritised edges from
-                each edge_container. (unidirectional section use)
-
-            TODO:
-                Remove edge_containers from voting, if active_agents on edge
-                (e.g.: from init)
         """
-        if not consider_vote:
-            self._graph_complete.clear()
-            for edge_container in self.edges.values():
-                edges = edge_container.get_edges(consider_vote=False)
-                for edge in edges:
-                    self._graph_complete.add_edge(*edge.pair, length=edge.length)
-            self._graph = self._graph_complete.copy()
-            return
-            # path = networkx.shortest_path(self._graph_complete, weight='length')
-            # TODO: testpath = networkx.all_shortest_path(self._graph_complete
-            # TODO: remove plotting -> add all_path_computation and visualise output
-            return
-        # TODO: in order to reset the graph simply copy from the shadow (self._graph_complete)
-        # NOTE: remove subsequent
-        self._graph.clear()
+        self._graph_complete.clear()
         for edge_container in self.edges.values():
-            edges = edge_container.get_edges(consider_vote=consider_vote)
+            edges = edge_container.get_edges(consider_vote=False)
             for edge in edges:
                 self._graph.add_edge(*edge.pair, length=edge.length)
+        return
 
-    def _update_agents_heuristics(self, optimal=True):
+    def _update_agents_heuristics(self):
         """ Compute shortest path for each agent. """
-        for agent in self.agents.values():
-            agent.reset_path()
-            self.shortest_path(agent)
-
-    def _conduct_vote(self):
-        """ Execute voting on all edges in agent's path.
-
-            This is only for initialisation.
-
-        """
-        #for edge_container in self.edges.values():
-        #    # NOTE: this triggers UNVOTED -> None in vote_edges
-        #    edge_container.reset_vote()
-
-        for agent in self.agents.values():
-            agent.vote_edges()
+        agent.reset_path()
+        self.shortest_path(agent)
 
     def _initialise_graph(self):
         self._initialise_railway()
         self._initialise_edges()
         self._locate_agents_in_graph()
         self.debug('Initialise graph')
-        self._create_graph(consider_vote=False)
-        self._update_agents_heuristics(optimal=True)
-
-        #self._conduct_vote()
-        #self.debug('Recompute heuristics with direction constraints')
-        #self._create_graph(consider_vote=True)
-        #self._update_agent_heuristics()
+        self._create_graph()
+        for agent in self.agents.values():
+            self._update_agent_heuristics(agent)
 
     def _initialise_agents(self):
         """ Parse flatland metrics from agents. """
@@ -270,144 +226,24 @@ class MyGraph(Utils):
         return networkx.shortest_path(self._graph, start, goal, 'length')
 
     def shortest_path(self, agent):
-        """ Update heuristic for agent with agent_id. """
-        def agent_text():
-            return 'Agent{0}: '.format(agent.id), agent.status,
+        """ Update heuristic for agent with agent_id. 
+
+            Todo:
+                use look up from all_shortest_path
+
+        """
         current = agent.current_node
-        timestamp = time.time()
         for target in agent.target_nodes.keys():
             try:
                 sp = self._shortest_path(current, target)
                 agent.mode = AgentMode.ACTIVE
                 agent.update_path(sp)
-                print(sp)
-                debug_message = 'SUCCESS! '
-                debug_message += '{} '.format(target)
-                debug_message += '({:.4}s)'.format(time.time() - timestamp)
-                self.debug(agent_text(), debug_message)
                 return
             except (networkx.exception.NodeNotFound, networkx.NetworkXNoPath) as e:
-                # TODO: consider that agent might be able to use 
-                #       existing heuristic as path
                 agent.status = AgentStatus.INFEASIBLE_PATH
                 agent.mode = AgentMode.STALE
-                self.debug(agent_text(), ' ERROR! \n\t', e)
-        debug_message = 'Total failure of path comptutation! '
-        debug_message += '{} '.format(target)
-        debug_message += '({:.4}s)'.format(time.time() - timestamp)
-        self.debug(agent_text(), agent.status, debug_message)
-        # NOTE: with vote disabled this graph is complete at all time
         print('Infeasible for given path: will never find a target??')
         raise RuntimeError()
-
-    # NOTE: VOTE
-    def _update_graph_edges(self):
-        """ Update graph by adding and removing voted edges graph. """
-        pop_list = list()
-        for edge_container in self.edge_reactivation.values():
-            new_edges = edge_container.get_edge_updates()
-            for action, edges in new_edges.items():
-                if not len(edges):
-                    continue
-                if action == EdgeActionType.ADD:
-                    for edge in edges.values():
-                        self._graph.add_edge(*edge.pair, length=edge.length)
-                    continue
-                for edge in edges.values():
-                    self._graph.remove_edge(*edge.pair, length=edge.length)
-            pop_list.append(edge_container.id)
-        for pop in pop_list:
-            self.edge_reactivation.pop(pop, None)
-        return
-
-    # NOTE: VOTE - 
-    def _is_agent_exploring(self, agent):
-        """ Test if agent has interest in recently reactivated edge. """
-        # print('Agent{}'.format(agent.id), agent.mode, agent._agent.status)
-        # TODO: add agent.status, agent_id from flatland)
-        # TODO: show debug output from rail_env
-        if (agent.mode == AgentMode.STALE or
-            agent._agent.status == flatland.envs.agent_utils.RailAgentStatus.DONE_REMOVED):
-            # print('skip {}'.format(agent.id))
-            return False # NOTE: Leave moving trains untouched
-        self.graph_activity |= GraphActivity.AGENT_ACTIVE
-        if agent.mode == AgentMode.EXPLORING:
-            self._update_graph_edges()
-            self.debug_is_enabled = True
-            self.shortest_path(agent)
-            self.debug_is_enabled = False
-        return True
-        #if agent.mode == AgentMode.STALE:
-        #    return
-
-    # NOTE: Final placement under rollout.py
-    def controls(self):
-        """ Return control dictionary for all agents. """
-        controls = dict()
-        # self.graph_activity = GraphActivity.ZERO
-        # self._update_agent_heuristics(optimal=True)
-        i = 0
-
-        for agent in self.agents.values():
-            print('Agent', agent.id, ': ', agent._agent.status, ' ', agent.state)
-            if agent._agent.status == flatland.envs.agent_utils.RailAgentStatus.DONE_REMOVED:
-                controls[agent.id] = Control.S
-                i+=1
-                continue
-            #if agent.mode == AgentMode
-            #print('Agent'.agent.id,': ', agent.mode)
-            agent.set_control(controls)
-            # TODO: check how flatland parses controls and 
-            #       whether agent_id still active
-            #if self._is_agent_exploring(agent):
-            #    agent.set_control(controls)
-            #    continue
-            #if self.graph_activity == GraphActivity.ZERO:
-            #    print('Stale graph')
-            #    controls[agent.id] = self.states[agent.state][0].control
-        #print(controls)
-        print('Agents in goal:', i)
-        return controls
-        print('GraphActivity: ', self.graph_activity)
-        if self.graph_activity == GraphActivity.ZERO:
-            self._graph = self._graph_complete.copy()
-            #self._create_graph(consider_vote=False)
-            self._update_agent_heuristics(optimal=True)
-            self._conduct_vote()
-            #self.debug('Recompute heuristics with direction constraints')
-            self._create_graph(consider_vote=True)
-            self._update_agent_heuristics()
-            #import random
-            #agent = random.choice(list(self.agents.values()))
-            #controls_i = self.states[agent.state].controls
-            # print('select from controls')
-            #print(controls_i)
-            #controls[agent.id] = random.choice(controls_i).control
-            #for agent in self.agents.values():
-            #    agent.mode = AgentMode.EXPLORING
-        for agent in self.agents.values():
-            #continue
-            if agent.mode == AgentMode.ACTIVE:
-                #rollout.display.show_states([agent.state], Color.RED, Dimension.RED)
-                #display.show_states([agent.state], Color.STATE, Dimension.STATE)
-                #display.show()
-
-                sc = self.states[agent.state]
-                coc = sc.coc
-                co = coc.coordinate
-                control_bits = self.grid[co]
-
-                #print('State: {}'.format(agent.state))
-                #print('GRID: {}'.format(self.grid[co]))
-                #print('BITS', bin(control_bits))
-                #print('EDGES: {}'.format(agent.edge_container_ids()))
-                #e_id = agent.edge_container_ids()[0]
-                #ec = self.edges[e_id]
-                #print(ec.path)
-                #print('AGENT{}: '.format(agent.id), controls[agent.id])
-                #print('Available COC: {}'.format(coc.controls))
-                #print('Available SC: {}'.format(self.states[agent.state].controls))
-        return controls
 
     def update_agent_states(self):
         """ Update each agent state with most recent flatland states. """
@@ -423,12 +259,4 @@ class MyGraph(Utils):
 
 if __name__ == "__main__":
     print('Graph - Testbed')
-    env.reset()
-    env_renderer.reset()
-
-    for step in range(500):
-        env.step(dict((a,0) for a in range(env.get_num_agents())))
-
-    env_renderer.render_env(show=True, show_predictions=False, show_observations=False)
-    input('press to close')
 

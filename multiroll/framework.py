@@ -31,8 +31,6 @@ class GlobalContainer(object):
     edges = dict()
     # A collection of all edges indexed by their StateControl and linked to the EdgeContainer
     edge_collection = dict()
-    # Edge containers triggered for reactivation of unscheduled edges
-    edge_reactivation = dict()
     # Priority dictionary
     priority_dict = dict([(p, dict()) for p in Priority])
     # Global debug flag (overwritten in instances)

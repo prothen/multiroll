@@ -77,10 +77,19 @@ class CoordinateContainer(Utils):
         self.railway[coordinate] = self
 
     def _get_coordinate_type(self, valid_directions):
+        """ Define intersection if more than two entry directions.
+
+            Note:
+                If it is not an intersection lift it to
+                an intersection in case of having an agent.target on
+                this coordinate.
+
+        """
         if len(valid_directions) <= 2:
             if not self.coordinate in self.targets.keys():
                 return CoordinateType.NORMAL_RAILWAY
         return CoordinateType.INTERSECTION
+
 
 class StateContainer(object):
     """ Utility class to collect information about state.
@@ -107,5 +116,5 @@ class StateContainer(object):
         # Store edge_id
         self.edges = list()
 
-        # TODO: Store edges indexed by reachable states
+        # Store control that leads a reachable node (set in graph.py)
         self.traverse = dict()
