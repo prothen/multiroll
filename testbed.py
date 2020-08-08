@@ -25,28 +25,32 @@ from flatland.envs.malfunction_generators import malfunction_from_params, Malfun
 
 from flatland.utils.rendertools import AgentRenderVariant
 
+
 import graph
 import display
 import observation
+
+from timeme import *
+from parser import *
 
 
 numpy.random.seed(1)
 
 
-STEP_ACTIVE = False
+STEP_ACTIVE = True
 DISPLAY_ACTIVE = True
 PROFILING = True
-DEBUG = False
+DEBUG = True
 PLOT_STEPS = 5
 
-H = 50
-W = 50
-N_STEPS = 500
-N_AGENTS = 40
+H = 150
+W = 150
+N_STEPS = 100
+N_AGENTS = 1
 # 400 did not work
 # 200 worked: 5ms (just fetching controls)
 N_CITIES = 8
-N_CONNECTIVITY = 32
+N_CONNECTIVITY = 8
 SEED = 14
 
 
@@ -62,6 +66,20 @@ ratios = {1.: 0.25,
           1. / 4.: 0.25} 
 gen_schedule = sparse_schedule_generator({1:1})
 
+class SimpleObs(ObservationBuilder):
+    """
+    Simplest observation builder. The object returns observation vectors with 5 identical components,
+    all equal to the ID of the respective agent.
+    """
+    def __init__(self):
+        self.observation_space = [5]
+
+    def reset(self):
+        return
+
+    def get(self, handle):
+        observation = handle * numpy.ones((self.observation_space[0],))
+        return observation
 
 env = RailEnv(
         width=H,
@@ -77,81 +95,58 @@ env = RailEnv(
         number_of_agents=N_AGENTS,
         #malfunction_generator_and_process_data=malfunction_from_params(
         #    params_malfunction),
-        obs_builder_object=GlobalObsForRailEnv(),
+        obs_builder_object=SimpleObs(),  #GlobalObsForRailEnv(),
         remove_agents_at_target=True,
         record_steps=True
         )
 
 
-#agent_render_variant=AgentRenderVariant.BOX_ONLY,
+# agent_render_variant=AgentRenderVariant.BOX_ONLY,
 env_renderer = RenderTool(env,
                           gl='PGL',
                           show_debug=False,
                           screen_height=1080,
                           screen_width=1920)
 
-timestamp = time.time()
+
+timeme_reset()
+env.reset()
+env_renderer.reset()
+timeme('Flatland - Reset: ')
+
+graph.set_env(env)
+g = graph.MyGraph(env_renderer, debug_is_enabled=DEBUG)
+
+timeme('Graph Setup: ')
 
 
-def start_timeme():
-    global timestamp
-    timestamp = time.time()
-
-
-def timeme(message):
-    global timestamp
-    print(message, '\n\t({:4}s)'.format(time.time() - timestamp))
-    timestamp = time.time()
 
 def main():
-    global DISPLAY_ACTIVE
-    timeme('start')
-    env.reset()
-    env_renderer.reset()
-    timeme('RESET: ')
-    print('##Testbed: Instantiate MyGraph.')
 
-    graph.set_env(env)
-    g = graph.MyGraph(env_renderer, debug_is_enabled=DEBUG)
-
-    timeme('Graph Setup: ')
     for step in range(N_STEPS):
         print('##IT', step)
-        start_timeme()
+        timeme_reset()
         controls = g.controls()
         timeme('Graph Controls: ')
-        print('##Testbed: Apply controls:\n', controls)
+
+        # print('Testbed: Apply controls:\n', controls)
         env.step(controls)
-        timeme('Env step: ')
+        timeme('Flatland - Env.step(): ')
+
         g.update_agent_states()
-        timeme('Graph Update agents: ')
-        print(DISPLAY_ACTIVE)
-        print(type(DISPLAY_ACTIVE))
-        if DISPLAY_ACTIVE:
-            if (not step % PLOT_STEPS):
-                print('visualise request')
-                aoutohaeun
-                #g.visualise()
-        timeme('Graph visualise: ')
-        #if STEP_ACTIVE:
-        #    input('## --> Continue?')
+        timeme('Graph - Update agents: ')
 
-    g.visualise(show=True)
-    input('##Testbed: Completed! Press any key to close.')
+        if DISPLAY_ACTIVE and (not step % PLOT_STEPS):
+                g.visualise()
+        timeme('Graph - Visualise: ')
 
-def str2bool(v):
-    if isinstance(v, bool):
-       return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
+        if STEP_ACTIVE:
+            input('## --> Continue?')
+            timeme_reset()
 
-import argparse
-parser = argparse.ArgumentParser()
-parser.add_argument('--display', type=str2bool, dest='display_active', help='Enable visualisation', default=False)
+    if DISPLAY_ACTIVE:
+        g.visualise(show=True)
+        input('##Testbed: Completed! Press any key to close.')
 
 if __name__ == "__main__":
     args = parser.parse_args()
