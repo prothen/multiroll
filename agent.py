@@ -72,6 +72,7 @@ class AgentContainer(Utils):
         self.target_container = self.railway[self.target]
         self.target_nodes = self.target_container.valid_states
 
+    # NOTE: VOTE
     def update_edge_availability(self, edge_container_id):
         """ Test if this agent is interested to hear about the reactivation of
             a previously voting-related denied edge.
@@ -109,8 +110,8 @@ class AgentContainer(Utils):
             self.current_node = edge_container.goal_state[edge_direction]
             self.path_edge_containers.append(edge_container)
             # NOTE: debug -> remove for production
-            #print('Edge direction initialised: {}'.format(edge_direction))
-            #print('On Edge container: {}'.format(edge_container_id))
+            # print('Edge direction initialised: {}'.format(edge_direction))
+            # print('On Edge container: {}'.format(edge_container_id))
             return
         self.current_node = self.state
 
@@ -139,6 +140,7 @@ class AgentContainer(Utils):
             self.status = AgentStatus.FEASIBLE_PATH
         self.register_edges()
 
+    # NOTE: VOTE
     def vote_edges(self):
         """ Register interest in using edge_container_ids from its path. 
 
@@ -154,6 +156,7 @@ class AgentContainer(Utils):
                                            self.path_nodes):
             self.edges[edge_container_id].parse_agent_vote(node, self)
 
+    # NOTE: VOTE
     def unregister_edges(self):
         """ Unregister to all  edge_containers on path.
 
@@ -168,6 +171,7 @@ class AgentContainer(Utils):
         for edge_container in self.path_edge_containers:
             edge_container.unregister_agent(self.id)
 
+    # NOTE: VOTE
     def register_edges(self):
         """ Register to all  edge_containers on path.
 
@@ -202,10 +206,10 @@ class AgentContainer(Utils):
                 in get_agent_progress tests if edge availability changes.
 
         """
-        # TODO: trigger unregister event on edge_container and register event
         if not edge_container.get_agent_progress(self.id, self.state):
             self.path_edge_containers.pop(0)
 
+    # NOTE: LEGACY -> handled by rollout
     def set_control(self, controls):
         """ Update control dictionary and update active linked edge_containers.
 
