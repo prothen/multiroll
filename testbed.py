@@ -122,19 +122,21 @@ timeme('Graph Setup: ')
 
 
 def main():
-
+    if DISPLAY_ACTIVE or STEP_ACTIVE:
+        input('####Start testbed?')
+    timeme_reset()
     for step in range(N_STEPS):
         print('##IT', step)
 
-        timeme_reset()
+        g.update_agent_states()
+        timeme('Graph - Update agents: ')
+
         controls = g.controls()
         timeme('Graph Controls: ')
 
         env.step(controls)
         timeme('Flatland - Env.step(): ')
 
-        g.update_agent_states()
-        timeme('Graph - Update agents: ')
 
         if DISPLAY_ACTIVE and (not step % PLOT_STEPS):
                 g.visualise()
@@ -151,4 +153,7 @@ def main():
 if __name__ == "__main__":
     args = parser.parse_args()
     DISPLAY_ACTIVE = args.display_active
+    STEP_ACTIVE = args.step_active
+
     main()
+
