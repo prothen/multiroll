@@ -16,7 +16,7 @@ cd profiler && ./generate_pstats_profile.sh
 ```
 which will show a graphical representation of the most time consuming methods.
 
-## The environment
+## Installation
 Install the dependencies with
 ```
 pip install --requirements.txt
@@ -28,4 +28,4 @@ pip install --requirements.txt
 **Maintainer**: Philipp Rothenhäusler (philipp.rothenhaeusler a t gmail.com)
 
 ## LICENSE
-By default all rights are reserved, if you would like to use this project with a specific license, feel free to contact us.
+All rights are reserved.
