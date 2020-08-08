@@ -149,7 +149,7 @@ class AgentContainer(Utils):
         """
         if not self.status == AgentStatus.FEASIBLE_PATH:
             print('Agent has been asked to vote but does not have feasible path')
-            raise RuntimeError()
+            #raise RuntimeError()
         for edge_container_id, node in zip(self.edge_container_ids(),
                                            self.path_nodes):
             self.edges[edge_container_id].parse_agent_vote(node, self)
@@ -191,6 +191,8 @@ class AgentContainer(Utils):
         (r, c) = a.position
         d = Direction(a.direction)
         self.state = State(r, c, d)
+        # print('Initial target: {}'.format(self.target))
+        # print('Flatland target: {}'.format(self._agent.target))
 
     def update_edge_progress(self, edge_container):
         """ Return the amount of cells remaining after current state. 

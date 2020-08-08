@@ -1,7 +1,7 @@
 #!/bin/env python
 
 import numpy
-import inspect
+#import inspect
 
 from constants import *
 
@@ -67,8 +67,8 @@ class Utils(GlobalContainer):
         """ Print message if debug_is_enabled is True. """
         if not self.debug_is_enabled:
             return
-        frame = inspect.getouterframes(inspect.currentframe(), 2)
-        print(str(self.__class__.__name__), ':\n\t', frame[1][3], ':\n\t\t',  *args)
+        #frame = inspect.getouterframes(inspect.currentframe(), 2) - access with frame[1][3]
+        print(str(self.__class__.__name__), ':\n\t',  ':\n\t\t',  *args)
 
     @staticmethod
     def _bits(i, value):
