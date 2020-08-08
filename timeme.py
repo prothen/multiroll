@@ -15,6 +15,6 @@ def timeme_reset():
 def timeme(message):
     global timestamp
     global S2MS
-    print(message, '\n\t({:3.2}ms)'.format((time.time() - timestamp)*S2MS))
+    print(message, '\n\t({:3.2f}ms)'.format((time.time() - timestamp)*S2MS))
     timestamp = time.time()
 
