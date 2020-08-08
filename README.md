@@ -21,6 +21,8 @@ And install the rollout package with
 python setup.py install
 ```
 
+_Note: For development installations it is recommended to run `./init.sh` in order to add the package path to the PYTHONPATH and avoid updating the installation folder on source code changes._
+
 ## Profiling
 And profile the code performance using
 ```
