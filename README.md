@@ -1,5 +1,5 @@
-# railway_rollout
-Railway rollout for flatland Neurips Challenge 2020
+# multiroll
+The multi-agent rollout Python implementation.
 
 
 ## Usage
