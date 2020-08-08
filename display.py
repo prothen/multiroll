@@ -1,45 +1,27 @@
 #!/bin/env python
 
+import networkx
+import matplotlib.pyplot
+
+from constants import *
+
 from graph import Direction
 
-class Color:
-    STATE = (255,0,0,)
-    TARGET = (0,255,0)
+env_renderer = None
 
-class Dimension:
-    STATE = 30
-    TARGET = 30
+def set_env_renderer(env_renderer_arg):
+    global env_renderer
+    env_renderer = env_renderer_arg
 
-# Plot related
-Transition2Color = dict()
-Transition2Color[Direction.N] = 'r'
-Transition2Color[Direction.E] = 'r'
-Transition2Color[Direction.S] = 'r'
-Transition2Color[Direction.W] = 'r'
-
-
-# Plot related
-Direction2Target = dict()
-Direction2Target[Direction.N] = [-1, 0]
-Direction2Target[Direction.E] = [0, 1]
-Direction2Target[Direction.S] = [1, 0]
-Direction2Target[Direction.W] = [1, -1]
-"""
-    fl/utils/renderutils
-    l.137: grid2pixels
-        r -> -y
-        c -> x
-
-    fl/utils/graphicslayer
-    l. 52: color rgb tuple 255 (int, int, int)
-
-    fl/utils/:
-        GraphicsLayer -> PILGL -> PILSVG  -> PGL 
-"""
+def renderer(func):
+    global env_renderer
+    def wrapper(*args, **kwargs):
+        return func(env_renderer, *args, **kwargs)
+    return wrapper
 
 def report_states(states):
     """ Report states via their states_containers and their metrics. 
-        
+
         Note:
             Expects a list of graph.StateContainers
     """
@@ -47,11 +29,13 @@ def report_states(states):
         print('\tState: \t{}'.format(state_container.state))
         print('\tControls: \t{}'.format(state_container.controls))
 
+@renderer
 def show_path(env_renderer, path):
     """ """
     # todo
     pass
 
+@renderer
 def show_agents(env_renderer, agents):
     """ Show states defined in StatesContainer through Flatland env_renderer. 
     
@@ -64,17 +48,35 @@ def show_agents(env_renderer, agents):
 
         env_renderer.gl.scatter(*(state.c, -state.r), color=Color.STATE, layer=1, marker="o", s=Dimension.STATE)
         env_renderer.gl.scatter(*(target.c, -target.r), color=Color.TARGET, layer=1, marker="o", s=Dimension.TARGET)
+        show()
+        #env_renderer.render_env(
+        #        show=True, 
+        #        show_agents=True, 
+         #       show_predictions=False, 
+         #       show_observations=False)
+@renderer
+def show_states(env_renderer, states, color=Color.STATE, dimension=Dimension.STATE):
+    """ Show states defined in StatesContainer through Flatland env_renderer. 
+
+        Todo:
+            Update directions
+    """
+    for state in states:
+        env_renderer.gl.scatter(*(state.c, -state.r), color=color,
+                                layer=1, marker="o", s=dimension)
         env_renderer.render_env(
                 show=True, 
                 show_agents=True, 
                 show_predictions=False, 
                 show_observations=False)
 
-def show_states(env_renderer, states):
-    """ Show states defined in StatesContainer through Flatland env_renderer. 
-    
-        Todo:
-            Update directions
-    """
-    for state in states:
-        env_renderer.gl.scatter(*(state.c, -state.r), color=Color.STATE, layer=1, marker="o", s=Dimension.STATE)
+@renderer
+def show(env_renderer):
+    env_renderer.gl.show()
+
+
+def show_graph(graph):
+    networkx.draw(self._graph)
+    matplotlib.pyplot.show()
+    input('Showing graph...\n Press any key to continue')
+
