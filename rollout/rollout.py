@@ -1,10 +1,10 @@
 #!/bin/env python
 
 
-from constants import *
-from framework import *
+from rollout.constants import *
+from rollout.framework import *
 
-import simulator
+import rollout.simulator
 
 
 class Rollout:
@@ -92,10 +92,12 @@ class Rollout:
                 at current stage.
         """
         for agent in self.agents:
-            if self.states[agent.state].priority != Priority.None:
-                self._rollout(agent)
-            else:
-                self.controls[agent.id] = agent.heuristic[agent.state].control
+            #if self.states[agent.state].priority != Priority.None:
+            # TODO: Add is_agent_at_node to agent (agent.state.type &Node)
+            #       -> if intersection -> try waiting and see whether this changes something
+            self._rollout(agent)
+            #else:
+            #    self.controls[agent.id] = agent.heuristic[agent.state].control
         return self.controls
 
 

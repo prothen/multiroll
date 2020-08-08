@@ -1,9 +1,9 @@
 #!/bin/env python
 
-import graph
+from rollout import *
 
 
-class SimAgentContainer(graph.AgentContainer):
+class SimAgentContainer(AgentContainer):
     """ 
         Note:
             agent_container:

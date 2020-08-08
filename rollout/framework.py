@@ -1,9 +1,8 @@
 #!/bin/env python
 
 import numpy
-#import inspect
 
-from constants import *
+from rollout.constants import *
 
 class GlobalContainer(object):
     # Define environment
@@ -67,6 +66,7 @@ class Utils(GlobalContainer):
         """ Print message if debug_is_enabled is True. """
         if not self.debug_is_enabled:
             return
+        # import inspect
         #frame = inspect.getouterframes(inspect.currentframe(), 2) - access with frame[1][3]
         print(str(self.__class__.__name__), ':\n\t',  ':\n\t\t',  *args)
 

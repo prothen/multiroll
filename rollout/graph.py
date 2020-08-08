@@ -31,16 +31,14 @@ from typing import Optional
 import flatland
 
 
-from constants import *
-from framework import *
-from coordinate import *
-from agent import *
-from edge import *
+from rollout import *
+from rollout.constants import *
+from rollout.framework import *
+from rollout.coordinate import *
+from rollout.agent import *
+from rollout.edge import *
 
-import display
-
-
-class MyGraph(Utils):
+class MyGraph(rollout.framework.Utils):
     """Container for graph related actions.
 
         Note:
@@ -59,7 +57,9 @@ class MyGraph(Utils):
         self.switch_debug_mode(debug_is_enabled)
         self.visualisation_is_enabled = True
 
-        display.set_env_renderer(env_renderer)
+        rollout.framework.set_env(env)
+
+        rollout.display.set_env_renderer(env_renderer)
 
         self._graph = networkx.DiGraph()
         self._graph_complete = networkx.DiGraph()
@@ -388,7 +388,7 @@ class MyGraph(Utils):
         for agent in self.agents.values():
             #continue
             if agent.mode == AgentMode.ACTIVE:
-                # display.show_states([agent.state], Color.RED, Dimension.RED)
+                #rollout.display.show_states([agent.state], Color.RED, Dimension.RED)
                 #display.show_states([agent.state], Color.STATE, Dimension.STATE)
                 #display.show()
 
@@ -417,8 +417,8 @@ class MyGraph(Utils):
     def visualise(self):
         """ Call display utility methods and visualise metrics and states. """
         if self.visualisation_is_enabled:
-            display.show_agents(self.agents.values())
-            display.show()
+            rollout.display.show_agents(self.agents.values())
+            rollout.display.show()
 
 
 if __name__ == "__main__":

@@ -2,9 +2,9 @@
 
 import flatland
 
-from constants import *
-from framework import *
-from coordinate import *
+from rollout.constants import *
+from rollout.framework import *
+from rollout.coordinate import *
 
 
 class AgentContainer(Utils):

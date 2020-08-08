@@ -3,11 +3,11 @@
 import networkx
 import matplotlib.pyplot
 
-from constants import *
+from rollout.constants import *
 
-from graph import Direction
 
 env_renderer = None
+
 
 def set_env_renderer(env_renderer_arg):
     global env_renderer
