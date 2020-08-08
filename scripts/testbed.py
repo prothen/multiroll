@@ -26,8 +26,6 @@ from flatland.envs.malfunction_generators import malfunction_from_params, Malfun
 from flatland.utils.rendertools import AgentRenderVariant
 
 
-import multiroll
-
 from multiroll import *
 
 from multiroll.timeme import *
@@ -120,7 +118,7 @@ def main():
 
         if DISPLAY_ACTIVE and (not step % PLOT_STEPS): 
             g.visualise()
-        timeme('Graph - Visualise: ')
+            timeme('Graph - Visualise: ')
 
         if STEP_ACTIVE:
             input('## --> Continue?'
