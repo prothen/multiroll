@@ -125,11 +125,11 @@ def main():
 
     for step in range(N_STEPS):
         print('##IT', step)
+
         timeme_reset()
         controls = g.controls()
         timeme('Graph Controls: ')
 
-        # print('Testbed: Apply controls:\n', controls)
         env.step(controls)
         timeme('Flatland - Env.step(): ')
 
