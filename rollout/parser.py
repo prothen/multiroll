@@ -14,5 +14,5 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--display', type=str2bool, dest='display_active', help='Enable visualisation', default=False)
+parser.add_argument('--display', type=str2bool, dest='display_active', help='Enable visualisation', default=True)
 parser.add_argument('--step', type=str2bool, dest='step_active', help='Enable visualisation', default=True)

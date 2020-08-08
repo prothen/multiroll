@@ -118,7 +118,7 @@ class EdgeContainer(Utils):
             self.state2progress[StateControl.state] = progress
             self.state2direction[StateControl.state] = edge_direction
         for state in ingress_states.keys():
-            self.state2progress[state] = -1
+            self.state2progress[state] = 0
             self.state2direction[state] = edge_direction
         self.length = len(path)
 
@@ -263,7 +263,7 @@ class EdgeContainer(Utils):
         progress = self.state2progress[state]
         if not progress:
             self.enter(state, agent_id)
-        eta = self.length - progress - 1
+        eta = self.length -1 - progress
         if not eta:
             self.exit(agent_id)
         return eta

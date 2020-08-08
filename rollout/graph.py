@@ -55,7 +55,7 @@ class MyGraph(Utils):
             - Use graph_complete mirror and 
                 - use graph_complete.copy() to reset dynamic?
     """
-    def __init__(self, env_renderer=None, debug_is_enabled=None):
+    def __init__(self, env, env_renderer=None, debug_is_enabled=None):
         self.switch_debug_mode(debug_is_enabled)
         self.visualisation_is_enabled = True
 
@@ -71,6 +71,7 @@ class MyGraph(Utils):
     def _locate_agents_in_graph(self):
         for agent in self.agents.values():
             agent.initialise()
+            agent.find_railway_target()  #initialise()
             agent.locate()
 
     def _is_explored(self, state, control):
@@ -256,7 +257,11 @@ class MyGraph(Utils):
         """Return all shortest path for all edges. """
         s = networkx.all_shortest_path(self._graph_complete)
 
-    def _shortest_path(self, start, goal):
+    def _convert_path_to_edge_containers(self, path):
+        """ """
+        pass
+
+    def _shortest_path_look_up(self, start, goal):
         """ Parse arguments to networkx implementation. """
         return networkx.shortest_path(self._graph, start, goal, 'length')
 

@@ -14,7 +14,6 @@ def set_env_renderer(env_renderer_arg):
     env_renderer = env_renderer_arg
 
 def renderer(func):
-    global env_renderer
     def wrapper(*args, **kwargs):
         return func(env_renderer, *args, **kwargs)
     return wrapper
@@ -48,7 +47,6 @@ def show_agents(env_renderer, agents):
 
         env_renderer.gl.scatter(*(state.c, -state.r), color=Color.STATE, layer=1, marker="o", s=Dimension.STATE)
         env_renderer.gl.scatter(*(target.c, -target.r), color=Color.TARGET, layer=1, marker="o", s=Dimension.TARGET)
-        show()
         #env_renderer.render_env(
         #        show=True, 
         #        show_agents=True, 
@@ -72,6 +70,11 @@ def show_states(env_renderer, states, color=Color.STATE, dimension=Dimension.STA
 
 @renderer
 def show(env_renderer):
+    env_renderer.render_env(
+            show=True, 
+            show_agents=True, 
+            show_predictions=False, 
+            show_observations=False)
     env_renderer.gl.show()
 
 

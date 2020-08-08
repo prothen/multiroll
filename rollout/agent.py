@@ -62,6 +62,7 @@ class AgentContainer(Utils):
     def edge_container_ids(self):
         return [e.id for e in self.path_edge_containers]
 
+    # LEGACY
     def initialise(self):
         """ Fetch current states and update targets.
 
@@ -71,6 +72,20 @@ class AgentContainer(Utils):
         """
         self.target_container = self.railway[self.target]
         self.target_nodes = self.target_container.valid_states
+
+    def find_railway_target(self):
+        """ Set the agents railway target coordinate and possible states.
+
+            Note:
+                Requires the railway in GlobalContainer to be initialised.
+
+            Todo:
+                Consider try except or trust that target is on railway in GlobalCoordinate
+
+        """
+        self.target_container = self.railway[self.target]
+        self.target_nodes = self.target_container.valid_states
+        self.status |= AgentStatus.HAS_TARGET
 
     # NOTE: VOTE
     def update_edge_availability(self, edge_container_id):
@@ -124,6 +139,10 @@ class AgentContainer(Utils):
 
             Todo:
                 Debug the conversion to edge_ids
+                
+                - Convert networkX path in graph to edge_container ref
+
+                - Only parse edge_containers here
         """
         self.path_nodes = path
         for idx, node in enumerate(path):
@@ -206,6 +225,7 @@ class AgentContainer(Utils):
                 in get_agent_progress tests if edge availability changes.
 
         """
+        eta = edge_container.get_agent_progress(self.id, self.state)
         if not edge_container.get_agent_progress(self.id, self.state):
             self.path_edge_containers.pop(0)
 
@@ -218,12 +238,16 @@ class AgentContainer(Utils):
                 see flatland.envs.agent_utils.RailAgentStatus
 
         """
+        #print('Agent', self.id, ': has', self.status)
         if not self.status == AgentStatus.FEASIBLE_PATH:
             #print('ID: ', self.id, ' No Path: Stopping!')
             controls[self.id] = Control.S
             return
         controls[self.id] = self.heuristic[self.state].control
         self.update_edge_progress(self.path_edge_containers[0])
+        #print(self.heuristic)
+        #print('Current control:', self.heuristic[self.state].control)
+        #print(controls[self.id])
         # print('Agent{}: '.format(self.id), '\nPath-IDs:{}'.format(self.edge_container_ids()))
 
 

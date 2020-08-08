@@ -98,7 +98,9 @@ class AgentStatus(enum.IntEnum):
     NONE = 0
     INITIALISED = 1
     INFEASIBLE_PATH = 2
-    FEASIBLE_PATH = 3
+    FEASIBLE_PATH = 4
+    HAS_TARGET = 8
+
 
 class AgentMode(enum.IntEnum):
     # Once infeasibility is encountered on existing graph
@@ -117,6 +119,12 @@ Tests = [[Control.L, -1],
          [Control.F, 0],
          [Control.R, 1]]
 
+class GlobalStatus(enum.IntEnum):
+    NONE = 0
+    HAS_RAILWAY = 1
+    HAS_EDGES = 2
+    HAS_GRAPH = 4
+    # TODO:
 
 FlipDirection = dict()
 FlipDirection[Direction.N] = Direction.S

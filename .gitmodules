@@ -1,9 +1,9 @@
-[submodule "flatland"]
-	path = flatland
-	url = https://github.com/prothen/flatland.git
-[submodule "e0c724f00f89fc9161a2f7ad5bcd1913"]
-	path = e0c724f00f89fc9161a2f7ad5bcd1913
-	url = https://gist.github.com/e0c724f00f89fc9161a2f7ad5bcd1913.git
-[submodule "profiler"]
-	path = profiler
-	url = https://gist.github.com/e0c724f00f89fc9161a2f7ad5bcd1913.git
+#[submodule "flatland"]
+#	path = flatland
+#	url = https://github.com/prothen/flatland.git
+#submodule "e0c724f00f89fc9161a2f7ad5bcd1913"]
+#	path = e0c724f00f89fc9161a2f7ad5bcd1913
+#	url = https://gist.github.com/e0c724f00f89fc9161a2f7ad5bcd1913.git
+#[#submodule "profiler"]
+#	path = profiler
+#	url = https://gist.github.com/e0c724f00f89fc9161a2f7ad5bcd1913.git

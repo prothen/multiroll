@@ -28,7 +28,7 @@ from flatland.utils.rendertools import AgentRenderVariant
 
 import graph
 import display
-import observation
+from observation import *
 
 from timeme import *
 from parser import *
@@ -46,7 +46,7 @@ PLOT_STEPS = 5
 H = 50
 W = 50
 N_STEPS = 100
-N_AGENTS = 1
+N_AGENTS = 10
 # 400 did not work
 # 200 worked: 5ms (just fetching controls)
 N_CITIES = 8
@@ -62,20 +62,6 @@ params_malfunction = MalfunctionParameters(
 
 gen_schedule = sparse_schedule_generator({1:1})
 
-class SimpleObs(ObservationBuilder):
-    """
-    Simplest observation builder. The object returns observation vectors with 5 identical components,
-    all equal to the ID of the respective agent.
-    """
-    def __init__(self):
-        self.observation_space = [5]
-
-    def reset(self):
-        return
-
-    def get(self, handle):
-        observation = handle * numpy.ones((self.observation_space[0],))
-        return observation
 
 env = RailEnv(
         width=H,
@@ -91,7 +77,7 @@ env = RailEnv(
         number_of_agents=N_AGENTS,
         #malfunction_generator_and_process_data=malfunction_from_params(
         #    params_malfunction),
-        obs_builder_object=GlobalObsForRailEnv(),
+        obs_builder_object=PlaceholderObs(),
         remove_agents_at_target=True,
         record_steps=False
         )
@@ -113,8 +99,8 @@ def main():
     env_renderer.reset()
     timeme('Flatland - Reset: ')
 
-    graph.set_env(env)
-    g = graph.MyGraph(env_renderer, debug_is_enabled=DEBUG)
+    # graph.set_env(env)
+    g = graph.MyGraph(env, env_renderer, debug_is_enabled=DEBUG)
     timeme('Graph Setup: ')
     if DISPLAY_ACTIVE or STEP_ACTIVE:
         g.visualise()
@@ -139,7 +125,8 @@ def main():
         timeme('Graph - Visualise: ')
 
         if STEP_ACTIVE:
-            input('## --> Continue?')
+            input('## --> Continue?'
+                  + '\n##############')
             timeme_reset()
 
     if DISPLAY_ACTIVE:

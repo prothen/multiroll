@@ -1,10 +1,10 @@
 #!/bin/env python
 
 
+from constants import *
+from framework import *
 
-import graph.py
-import simulator.py
-
+import simulator
 
 
 class Rollout:
@@ -27,6 +27,7 @@ class Rollout:
 
     """
     def __init__(self, env):
+        self.graph = graph.MyGraph(env)
         # Dictionary of agents with key: agent_id and value: agent_container
         # TODO: initialise agents from simulator
         self.agents = None
@@ -35,7 +36,7 @@ class Rollout:
         # priority dictionary: sorted agents according to their current edge
         self.priority_dict = None
         # simulator
-        self.simulator = None
+        self.simulator = simulatorNone
         # Controls indexed by agent_id and action
         self.controls = dict()
 
