@@ -41,8 +41,8 @@ class AgentContainer(Utils):
 
         # List of nodes sorted along path
         self.path = list()
-        # TODO: Document if ControlDirection to facilitate simulation
-        self.heuristic = dict()
+        # Dictionary with State to ControlDirection
+        self.controller = dict()
 
     @property
     def current_node(self):
@@ -69,9 +69,9 @@ class AgentContainer(Utils):
         self.target_nodes = target_container.valid_states
 
     def reset_path(self):
-        """ Reset path and the AgentStatus. """
-        self.heuristic = dict()
+        """ Reset path its controller and the AgentStatus. """
         self.path = list()
+        self.controller = dict()
         self.path_status = PathStatus.NONE
 
     def locate(self):
@@ -88,18 +88,24 @@ class AgentContainer(Utils):
             edge_direction = edge_container.state2direction[self.state]
 
             goal_state = edge_container.goal_state[edge_direction]
-            self.heuristic.update(edge_container.path[edge_direction])
+            path_controller = edge_container.path[edge_direction]
+            self.controller.update(path_controller)
             self.next_node = edge_container.goal_state[edge_direction]
-            self.path = edge_container
+            self.path = [goal_state]
+            self.status = AgentStatus.ON_PATH
+            print('Agent', self.id,' ', self.states, ': locate ')
             return
         self.current_node = self.state
+        self.status = AgentStatus.ON_NODE
+        print('Agent', self.id,' ', self.states, ': locate ')
 
-    def set_heuristic(self, path, heuristic):
-        """ Update edge_id and base_heuristic. """
+    def set_controller(self, path, controller):
+        """ Update edge_id and state to control dictionary. """
+
         if self.status == AgentStatus.ON_PATH:
             path.insert(0, self.path[0])
         self.path = path
-        self.heuristic.update(heuristic)
+        self.controller.update(controller)
         self.path_status = PathStatus.FEASIBLE
 
     def update(self):
@@ -111,6 +117,7 @@ class AgentContainer(Utils):
 
         """
 
+        print(self._agent.status)
         if not self._agent.status == flatland.envs.agent_utils.RailAgentStatus.ACTIVE:
             print('SKIPPED agent state update since non-active --> RTD STALE?')
             # TODO: test if RTD problems could originate from this
@@ -121,8 +128,9 @@ class AgentContainer(Utils):
         d = Direction(a.direction)
         self.state = State(r, c, d)
 
-        self.status = AgentStatus.ON_PATH
-        if self.state == path_node[0]:
-            self.status = AgentStatus.ON_NODE
-            del path_node[0]
+        if not self.path_status == PathStatus.INFEASIBLE:
+            self.status = AgentStatus.ON_PATH
+            if self.state == self.path[0]:
+                self.status = AgentStatus.ON_NODE
+                del self.path[0]
 
