@@ -28,12 +28,10 @@ class Simulator(multiroll.heuristic.ShortestPath):
         # Define state.id sorted occupancy for current sim step all states
         self.occupancy = [0] * len(self.states)
 
-    def _reset_agents(self):
+    def _reset_sim_agents(self):
         """ Reset all SimAgentContainer to AgentContainer states. """
-        # TODO: go through all SimAgentContainers is self.agents
         for agent in self.sim_agents.values():
             agent.reset()
-        pass
 
     def update_heuristic(self, agent_id, control):
         """ Update heuristic for agent. """
@@ -101,14 +99,17 @@ class Cost:
     NONE = 0
     NO_TRANSITION = 100
     NOT_AT_TARGET = 10
+    INFEASIBLE = 10000000000000
 
 
-class SimAgentContainer(multiroll.agent.AgentContainer):
-    """ 
+class SimAgentContainer:
+    """
         Note:
             agent_container:
                 - add path as state to control dictionary
                 - simulator -> state to control heuristic
+        Todo:
+            Not necessary to subclass from AgentContainer
     """
     def __init__(self, agent_native):
         # Store a reference to its native base AgentContainer
@@ -117,13 +118,14 @@ class SimAgentContainer(multiroll.agent.AgentContainer):
         self.state = self._agent.state
 
         # Define current simulation heuristic
-        self.heuristic = self.agent.heuristic.copy()
+        self.heuristic = self._agent.heuristic.copy()
 
     def reset(self):
         """ Reset agent state to its AgentContainer base. """
         self.state = self._agent.state
+        self.heuristic = self._agent.heuristic
 
-    def update_heuristic(self, heuristic):
+    def set_base_heuristic(self, path, heuristic):
         """ Update native AgentContainer with new heuristic. """
-        self.agent.heuristic = heuristic
+        self._agent.set_heuristic(path, heuristic)
 
