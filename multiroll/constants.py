@@ -98,6 +98,18 @@ class GlobalStatus(enum.IntEnum):
     HAS_GRAPH = 4
 
 
+class Occupancy:
+    FREE = 0
+    OCCUPIED = 1
+
+
+class Cost:
+    NONE = 0
+    NO_TRANSITION = 100
+    NOT_AT_TARGET = 10
+    INFEASIBLE = 10000000000000
+
+
 FlipDirection = dict()
 FlipDirection[Direction.N] = Direction.S
 FlipDirection[Direction.E] = Direction.W
