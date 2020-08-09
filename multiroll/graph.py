@@ -4,12 +4,12 @@
 
 
     Note:
-        This module expects to be initialised with
+        This module expects to be initialised with the 
+        interfacing environment
 
             import graph
-            graph.set_env(env)
             ...
-            graph.MyGraph()
+            graph.Graph(env)
 
         before usage of any subsequently defined classes.
 """
@@ -38,7 +38,7 @@ from .coordinate import *
 from .agent import *
 from .edge import *
 
-class MyGraph(Utils):
+class Graph(Utils):
     """Container for graph related actions.
 
         Note:
@@ -190,7 +190,7 @@ class MyGraph(Utils):
                 self._graph.add_edge(*edge.pair, length=edge.length)
         return
 
-    def _update_agents_heuristics(self):
+    def _update_agent_heuristics(self, agent):
         """ Compute shortest path for each agent. """
         agent.reset_path()
         self.shortest_path(agent)

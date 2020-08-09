@@ -1,13 +1,13 @@
 #!/bin/env python
 
 
+from multiroll import *
+
 from .constants import *
 from .framework import *
 
-import .simulator
 
-
-class Rollout:
+class Rollout(multiroll.simulator.Simulator):
     """ 
         
         Rollout only interacts with simulator to get flatland metrics. So
@@ -26,19 +26,23 @@ class Rollout:
 
 
     """
-    def __init__(self, env):
-        self.graph = graph.MyGraph(env)
+    def __init__(self, *args, **kwargs):
+        """ 
+
+            Note:
+                Specify desired keywords for this class explicitly
+        """
+        super().__init__(*args, **kwargs)
+        #self.simulator = multiroll.simulator.Simulator(*args, **kwargs)
         # Dictionary of agents with key: agent_id and value: agent_container
         # TODO: initialise agents from simulator
-        self.agents = None
+        # self.agents = None
         # Integer for prediction horizon
         self.prediction_horizon = None
         # priority dictionary: sorted agents according to their current edge
         self.priority_dict = None
-        # simulator
-        self.simulator = simulatorNone
         # Controls indexed by agent_id and action
-        self.controls = dict()
+        #self.controls = dict()
 
 
     def _rollout(self, agent_id):

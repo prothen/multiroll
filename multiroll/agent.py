@@ -109,7 +109,6 @@ class AgentContainer(Utils):
             edge_container = self.edges[edge_container_id]
             edge_direction = edge_container.state2direction[self.state]
 
-            edge_container.force_vote(edge_direction, self)
             goal_state = edge_container.goal_state[edge_direction]
             self.heuristic.update(edge_container.path[edge_direction])
             self.current_node = edge_container.goal_state[edge_direction]

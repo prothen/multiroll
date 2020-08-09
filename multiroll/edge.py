@@ -71,6 +71,12 @@ class EdgeContainer(Utils):
         # State to edge direction for container (localise on edge)
         self.state2direction = dict()
 
+    def _get_direction(self, backward):
+        """ Return the EdgeDirection for backward argument. """
+        if backward:
+            return EdgeDirection.BACKWARD
+        return EdgeDirection.FORWARD
+
     def add_edges(self, edges, backward=False):
         """ Add edges according to EdgeDirection to dict. """
         edge_direction = self._get_direction(backward)

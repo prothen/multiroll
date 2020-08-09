@@ -54,6 +54,9 @@ class StateType(enum.IntEnum):
     INTERSECTION = 3
     VERTEX = 5
 
+class EdgeDirection(enum.IntEnum):
+    FORWARD = 1
+    BACKWARD = -1
 
 class AgentStatus(enum.IntEnum):
     NONE = 0

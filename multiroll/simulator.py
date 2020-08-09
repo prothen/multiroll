@@ -1,37 +1,11 @@
 #!/bin/env python
 
-from rollout import *
+from multiroll import *
 
 
-class SimAgentContainer(AgentContainer):
-    """ 
-        Note:
-            agent_container:
-                - add path as state to control dictionary
-                - simulator -> state to control heuristic
-    """
-    def __init__(self, agent_container):
-        self.agent = agent_container
-
-        # Initialise default heuristic
-        self.heuristic = self.agent.heuristic.copy()
-
-    def update_heuristic(self):
-        self.agent.heuristic = self.heuristic
+class Simulator(multiroll.graph.Graph):
 
 
-class Occupancy:
-    FREE = 0
-    OCCUPIED = 1
-
-
-class Cost:
-    NONE = 0
-    NO_TRANSITION = 100
-    NOT_AT_TARGET = 10
-
-
-class Simulator:
     """
         # SIMULATOR
         # mirror current agents and their states
@@ -45,13 +19,13 @@ class Simulator:
             agent_container -> attribute heuristic: dict[cell_id_of_path] = control
             agent_container -> attribute sim_heuristic
     """
-    def __init__(self, env):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # self.graph = multiroll.graph.Graph(*args, **kwargs)
         # Agents dictionary with agent_id -> agent_container (global)
-        self.agents = None
+        #self.agents = None
         # Graph reference -> provides shortest path heuristic
-        graph.set_env(env)
-        self.graph = graph.MyGraph() #TODO: initialise in constructor
-        self.rail_env_mirror = FlatlandMirror(env) #TODO: copy all environment elements
+        #self.rail_env_mirror = FlatlandMirror(env) #TODO: copy all environment elements
         # define occupancy 
         pass
 
@@ -117,4 +91,33 @@ class Simulator:
         for step in range(steps):
             cost += self._simulate_step()
         return cost
+
+
+class Occupancy:
+    FREE = 0
+    OCCUPIED = 1
+
+
+class Cost:
+    NONE = 0
+    NO_TRANSITION = 100
+    NOT_AT_TARGET = 10
+
+
+class SimAgentContainer(multiroll.agent.AgentContainer):
+    """ 
+        Note:
+            agent_container:
+                - add path as state to control dictionary
+                - simulator -> state to control heuristic
+    """
+    def __init__(self, agent_container):
+        self.agent = agent_container
+
+        # Initialise default heuristic
+        self.heuristic = self.agent.heuristic.copy()
+
+    def update_heuristic(self):
+        self.agent.heuristic = self.heuristic
+
 

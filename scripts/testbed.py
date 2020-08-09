@@ -76,29 +76,30 @@ def main():
     env_renderer.reset()
     timeme('Flatland - Reset: ')
 
-    g = multiroll.graph.MyGraph(env, env_renderer, debug_is_enabled=DEBUG)
-    timeme('Graph Setup: ')
+    controller = multiroll.rollout.Rollout(env, env_renderer,
+                                           debug_is_enabled=DEBUG)
+    timeme('Multiroll Setup: ')
     if DISPLAY_ACTIVE or STEP_ACTIVE:
-        g.visualise()
+        controller.visualise()
         input('####Start testbed?')
         timeme_reset()
 
     for step in range(N_STEPS):
         print('##IT', step)
 
-        g.update_agent_states()
-        timeme('Graph - Update agents: ')
+        controller.update()
+        timeme('Multiroll - Update measurements: ')
 
-        controls = g.controls()
-        timeme('Graph Controls: ')
+        controls = controller.controls()
+        timeme('Multiroll Controls: ')
 
         env.step(controls)
         timeme('Flatland - Env.step(): ')
 
 
         if DISPLAY_ACTIVE and (not step % PLOT_STEPS): 
-            g.visualise()
-            timeme('Graph - Visualise: ')
+            controller.visualise()
+            timeme('Multiroll - Visualise: ')
 
         if STEP_ACTIVE:
             input('## --> Continue?'
@@ -106,7 +107,7 @@ def main():
             timeme_reset()
 
     if DISPLAY_ACTIVE:
-        g.visualise()
+        controller.visualise()
         input('##Testbed: Completed! Press any key to close.')
 
 if __name__ == "__main__":
