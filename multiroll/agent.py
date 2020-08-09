@@ -92,11 +92,9 @@ class AgentContainer(Utils):
             self.next_node = edge_container.goal_state[edge_direction]
             self.path = [goal_state]
             self.status = AgentStatus.ON_PATH
-            print('Agent', self.id,' ', self.state, ': locate ', self.status)
             return
         self.current_node = self.state
         self.status = AgentStatus.ON_NODE
-        print('Agent', self.id,' ', self.state, ': locate ', self.status)
 
     def set_controller(self, path, controller):
         """ Update edge_id and state to control dictionary. """
@@ -117,8 +115,6 @@ class AgentContainer(Utils):
                 property access.
 
         """
-
-        print(self._agent.status)
         if not self._agent.status == flatland.envs.agent_utils.RailAgentStatus.ACTIVE:
             return
         a = self._agent
@@ -127,20 +123,9 @@ class AgentContainer(Utils):
         d = Direction(a.direction)
         self.state = State(r, c, d)
 
-        print(self.path_status)
         if not self.path_status == PathStatus.INFEASIBLE:
             self.status = AgentStatus.ON_PATH
-            print('current  state:', self.state)
-            print('current path')
-            print(self.path)
             if self.state in self.path:
-                print('it is')
-                print('select:')
-                print(self.path[self.path.index(self.state)+1:])
                 self.path = self.path[self.path.index(self.state)+1:]
-            #if self.state == self.path[0]:
                 self.status = AgentStatus.ON_NODE
-                return
-                #del self.path[0]
-            print('it is not')
 
