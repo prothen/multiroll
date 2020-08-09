@@ -58,20 +58,39 @@ class Graph(Utils):
         self.visualisation_is_enabled = True
 
         set_env(env)
-
         multiroll.display.set_env_renderer(env_renderer)
 
-        self._graph = networkx.DiGraph()
-        self._graph_complete = networkx.DiGraph()
         self.graph_activity = GraphActivity.ZERO
+        self._graph = networkx.DiGraph()
 
         self._initialise_agents()
         self._initialise_graph()
 
+    def _initialise_agents(self):
+        """ Parse flatland metrics from agents. """
+        for agent_id, agent in enumerate(self.env.agents):
+            self.agents[agent_id] = AgentContainer(agent_id, agent)
+
+    def _initialise_graph(self):
+        self._initialise_railway()
+        self._initialise_edges()
+        self._locate_agents_in_graph()
+        self.debug('Initialise graph')
+        self._create_graph()
+
+    def _initialise_railway(self):
+        """ Defines all railway coordinates with unique railway ID. """
+        env_railway = numpy.nonzero(self.grid)
+        id_railway = -1
+        for r, c in zip(*env_railway):
+            id_railway += 1
+            coordinate = Coordinate(r, c)
+            CoordinateContainer(id_railway, coordinate)
+
     def _locate_agents_in_graph(self):
+        """ Run agent relocalisation routine. """
         for agent in self.agents.values():
-            agent.initialise()
-            agent.find_railway_target()  #initialise()
+            agent.find_railway_target()
             agent.locate()
 
     def _is_explored(self, state, control):
@@ -165,15 +184,6 @@ class Graph(Utils):
                 self.edges[edge_container_id] = edge_container
             node.edges.append(edge_container_id)
 
-    def _initialise_railway(self):
-        """ Defines all railway coordinates with unique railway ID. """
-        env_railway = numpy.nonzero(self.grid)
-        id_railway = -1
-        for r, c in zip(*env_railway):
-            id_railway += 1
-            coordinate = Coordinate(r, c)
-            CoordinateContainer(id_railway, coordinate)
-
     def _create_graph(self):
         """ Initialise networkx graph with all edges.
 
@@ -190,68 +200,14 @@ class Graph(Utils):
                 self._graph.add_edge(*edge.pair, length=edge.length)
         return
 
-    def _update_agent_heuristics(self, agent):
-        """ Compute shortest path for each agent. """
-        agent.reset_path()
-        self.shortest_path(agent)
-
-    def _initialise_graph(self):
-        self._initialise_railway()
-        self._initialise_edges()
-        self._locate_agents_in_graph()
-        self.debug('Initialise graph')
-        self._create_graph()
-        for agent in self.agents.values():
-            self._update_agent_heuristics(agent)
-
-    def _initialise_agents(self):
-        """ Parse flatland metrics from agents. """
-        for agent_id, agent in enumerate(self.env.agents):
-            self.agents[agent_id] = AgentContainer(agent_id, agent)
-
-    def _all_total_shortest_path(self):
-        """Return all shortest path for all edges. """
-        s = networkx.all_shortest_path(self._graph_complete)
-
-    def _convert_path_to_edge_containers(self, path):
-        """ """
-        pass
-
-    def _shortest_path_look_up(self, start, goal):
-        """ Parse arguments to networkx implementation. """
-        return networkx.shortest_path(self._graph, start, goal, 'length')
-
-    def _shortest_path(self, start, goal):
-        """ Parse arguments to networkx implementation. """
-        return networkx.shortest_path(self._graph, start, goal, 'length')
-
-    def shortest_path(self, agent):
-        """ Update heuristic for agent with agent_id. 
-
-            Todo:
-                use look up from all_shortest_path
-
-        """
-        current = agent.current_node
-        for target in agent.target_nodes.keys():
-            try:
-                sp = self._shortest_path(current, target)
-                agent.mode = AgentMode.ACTIVE
-                agent.update_path(sp)
-                return
-            except (networkx.exception.NodeNotFound, networkx.NetworkXNoPath) as e:
-                agent.status = AgentStatus.INFEASIBLE_PATH
-                agent.mode = AgentMode.STALE
-        print('Infeasible for given path: will never find a target??')
-        raise RuntimeError()
-
-    def update_agent_states(self):
-        """ Update each agent state with most recent flatland states. """
-        for agent in self.agents.values():
-            agent.update()
 
     def visualise(self):
-        """ Call display utility methods and visualise metrics and states. """
+        """ Call display utility methods and visualise metrics and states. 
+
+            Todo:
+                Add graph visualisation specifics.
+
+        """
         if self.visualisation_is_enabled:
             multiroll.display.show_agents(self.agents.values())
             multiroll.display.show()
