@@ -1,9 +1,10 @@
 #!/bin/env python
 
+
 from multiroll import *
 
 
-class Simulator(multiroll.graph.Graph):
+class Simulator(multiroll.heuristic.ShortestPath):
 
 
     """
@@ -13,7 +14,6 @@ class Simulator(multiroll.graph.Graph):
         # -> agent_id -> sim_container -> agent_edge_cell ->  control
         # -> simulator returns if agent transitions successfully or not
         Note:
-            agent_container -> attribute sim_state
             agent_container -> method: sim_controls
             agent_container -> method: sim_reset: reset state to actual state and sim_heuristic
             agent_container -> attribute heuristic: dict[cell_id_of_path] = control
@@ -21,24 +21,23 @@ class Simulator(multiroll.graph.Graph):
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # self.graph = multiroll.graph.Graph(*args, **kwargs)
-        # Agents dictionary with agent_id -> agent_container (global)
-        #self.agents = None
-        # Graph reference -> provides shortest path heuristic
-        #self.rail_env_mirror = FlatlandMirror(env) #TODO: copy all environment elements
-        # define occupancy 
-        pass
+        self.sim_agents = dict()
+        for agent in self.agents.values():
+            self.sim_agents[agent.id] = SimAgentContainer(agent)
 
-    def _initialise(self):
-        # TODO: get each AgentContainer and create a SimAgentContainer
-        pass
+        # Define state.id sorted occupancy for current sim step all states
+        self.occupancy = [0] * len(self.states)
 
     def _reset_agents(self):
+        """ Reset all SimAgentContainer to AgentContainer states. """
         # TODO: go through all SimAgentContainers is self.agents
+        for agent in self.sim_agents.values():
+            agent.reset()
         pass
 
     def update_heuristic(self, agent_id, control):
         """ Update heuristic for agent. """
+        self.update_shortest_path(agent)
         # TODO: Update SimAgentContainer heuristic attribute
         # Get Edge for (state,control) pair control.direction
         # if edge found successful and not blocked by scheduling(TBD -> avoid deadlock)
@@ -111,13 +110,20 @@ class SimAgentContainer(multiroll.agent.AgentContainer):
                 - add path as state to control dictionary
                 - simulator -> state to control heuristic
     """
-    def __init__(self, agent_container):
-        self.agent = agent_container
+    def __init__(self, agent_native):
+        # Store a reference to its native base AgentContainer
+        self._agent = agent_native
 
-        # Initialise default heuristic
+        self.state = self._agent.state
+
+        # Define current simulation heuristic
         self.heuristic = self.agent.heuristic.copy()
 
-    def update_heuristic(self):
-        self.agent.heuristic = self.heuristic
+    def reset(self):
+        """ Reset agent state to its AgentContainer base. """
+        self.state = self._agent.state
 
+    def update_heuristic(self, heuristic):
+        """ Update native AgentContainer with new heuristic. """
+        self.agent.heuristic = heuristic
 
