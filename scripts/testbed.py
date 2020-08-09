@@ -30,8 +30,6 @@ numpy.random.seed(1)
 STEP_ACTIVE = True
 DISPLAY_ACTIVE = True
 DEBUG = True
-# Plot every x environment steps
-# activate rollout algorithm
 ROLL_IT = True
 
 H = 50
@@ -80,7 +78,7 @@ def main():
     timeme('Flatland - Reset: ')
 
     controller = multiroll.rollout.Rollout(
-                    rollit = ROLL_IT,
+                    rollit=ROLL_IT,
                     prediction_steps=N_PREDICT_STEPS,
                     env=env,
                     env_renderer=env_renderer,
@@ -99,9 +97,8 @@ def main():
         timeme('Multiroll - Update measurements: ')
 
         controls = controller.controls()
-        timeme('Multiroll Controls: ')
+        timeme('Multiroll - Controls: ')
 
-        print('Current control: {0}'.format(controls))
         env.step(controls)
         timeme('Flatland - Env.step(): ')
 
