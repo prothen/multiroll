@@ -16,3 +16,4 @@ def str2bool(v):
 parser = argparse.ArgumentParser()
 parser.add_argument('--display', type=str2bool, dest='display_active', help='Enable visualisation', default=True)
 parser.add_argument('--step', type=str2bool, dest='step_active', help='Enable visualisation', default=True)
+parser.add_argument('--roll', type=str2bool, dest='rollout_active', help='Enable visualisation', default=True)
