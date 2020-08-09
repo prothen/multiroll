@@ -18,7 +18,7 @@ pip install --requirements.txt
 
 And install the rollout package with
 ```
-python setup.py install
+pip install .
 ```
 
 _Note: For development installations it is recommended to instead run `./init.sh` in order to add the package path to the `PYTHONPATH` and avoid updating the installation folder on source code changes._
