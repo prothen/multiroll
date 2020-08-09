@@ -36,7 +36,7 @@ PLOT_STEPS = 5
 H = 50
 W = 50
 N_STEPS = 100
-N_AGENTS = 5
+N_AGENTS = 1
 N_CITIES = 8
 N_CONNECTIVITY = 8
 SEED = 14
@@ -76,14 +76,11 @@ def main():
     env_renderer.reset()
     timeme('Flatland - Reset: ')
 
-    controller = multiroll.rollout.Rollout(env, env_renderer,
+    controller = multiroll.rollout.Rollout(env=env,
+                                           env_renderer=env_renderer,
                                            debug_is_enabled=DEBUG)
-
-    # Resolve control object
-    controls = controller.controls()
-    print('Initial control: {0}'.format(controls)
-
     timeme('Multiroll Setup: ')
+
     if DISPLAY_ACTIVE or STEP_ACTIVE:
         controller.visualise()
         #input('####Start testbed?')
@@ -95,14 +92,14 @@ def main():
         controller.update_agent_states()
         timeme('Multiroll - Update measurements: ')
 
-        controller.controls()
+        controls = controller.controls()
         timeme('Multiroll Controls: ')
 
+        print('Current control: {0}'.format(controls))
         env.step(controls)
         timeme('Flatland - Env.step(): ')
 
-
-        if DISPLAY_ACTIVE and (not step % PLOT_STEPS): 
+        if DISPLAY_ACTIVE and (not step % PLOT_STEPS):
             controller.visualise()
             timeme('Multiroll - Visualise: ')
 
