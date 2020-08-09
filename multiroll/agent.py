@@ -1,6 +1,12 @@
 #!/bin/env python
+"""
+
+    Author: Philipp Rothenhäusler, Stockholm 2020
+
+"""
 
 import flatland
+
 
 from .constants import *
 from .framework import *
@@ -11,11 +17,8 @@ class AgentContainer(Utils):
     """ Get subset of metrics from flatland environment.
 
         Note:
-            Defines agent interface to flatland agents.
+            Defines agent interface to flatland agent.
 
-        TODO:
-            - architecture design
-            - interfaces to simulator
     """
     def __init__(self, ID, agent, debug_is_enabled=None):
         self.id = ID
@@ -27,6 +30,7 @@ class AgentContainer(Utils):
         d = Direction(a.initial_direction)
         self.state = State(r, c, d)
         self.status = AgentStatus.INITIALISED
+        self.path_status = PathStatus.NONE
 
         self.target = Coordinate(*agent.target)
         # Register target states to request railway coordinate as node in graph
@@ -34,12 +38,23 @@ class AgentContainer(Utils):
 
         # Graph nodes that satifsy target coordinate (find_railway_target)
         self.target_nodes = None
-        # Defines next node available for path decision
-        self.next_node = None
 
-        # TODO:
-        #       should be ControlDirection to facilitate simulation
+        # List of nodes sorted along path
+        self.path = list()
+        # TODO: Document if ControlDirection to facilitate simulation
         self.heuristic = dict()
+
+    @property
+    def current_node(self):
+        """ Return next node from path or otherwise state.
+
+            Warning:
+                Read-only and an unpopulated path will cause invalid indexing.
+
+        """
+        if self.status == AgentStatus.ON_PATH:
+            return self.path[0]
+        return self.state
 
     def edge_container_ids(self):
         return [e.id for e in self.path_edge_containers]
@@ -52,14 +67,12 @@ class AgentContainer(Utils):
         """
         target_container = self.railway[self.target]
         self.target_nodes = target_container.valid_states
-        self.status |= AgentStatus.HAS_TARGET
 
     def reset_path(self):
         """ Reset path and the AgentStatus. """
         self.heuristic = dict()
-        self.path_edge_containers = list()
-        self.status = AgentStatus.INFEASIBLE_PATH
-        self.locate()
+        self.path = list()
+        self.path_status = PathStatus.NONE
 
     def locate(self):
         """ Locate agent in graph and Find next search node.
@@ -77,14 +90,30 @@ class AgentContainer(Utils):
             goal_state = edge_container.goal_state[edge_direction]
             self.heuristic.update(edge_container.path[edge_direction])
             self.next_node = edge_container.goal_state[edge_direction]
-            self.path.append(edge_container)
+            self.path = edge_container
             return
         self.current_node = self.state
 
+    def set_heuristic(self, path, heuristic):
+        """ Update edge_id and base_heuristic. """
+        if self.status == AgentStatus.ON_PATH:
+            path.insert(0, self.path[0])
+        self.path = path
+        self.heuristic.update(heuristic)
+        self.path_status = PathStatus.FEASIBLE
+
     def update(self):
-        """ Update agent state with flatland environment state. """
+        """ Update agent state with flatland environment state.
+
+            Note:
+                Sets the agent.status that coordinates the current_node
+                property access.
+
+        """
+
         if not self._agent.status == flatland.envs.agent_utils.RailAgentStatus.ACTIVE:
             print('SKIPPED agent state update since non-active --> RTD STALE?')
+            # TODO: test if RTD problems could originate from this
             return
         a = self._agent
         d = a.direction
@@ -92,8 +121,8 @@ class AgentContainer(Utils):
         d = Direction(a.direction)
         self.state = State(r, c, d)
 
-        # update state
-        # TODO:
-        #       if agent on path_node[0] -> del path_node[0]
-        #       set AgentMode on NODE
-        # 
+        self.status = AgentStatus.ON_PATH
+        if self.state == path_node[0]:
+            self.status = AgentStatus.ON_NODE
+            del path_node[0]
+
