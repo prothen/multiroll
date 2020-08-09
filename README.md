@@ -9,6 +9,7 @@ python testbed.py
 ```
 - use `--display False` to disable the visualisation,
 - use `--skip  False` to disable user prompts.
+- use `--roll  True` to enable the multi-agent rollout.
 
 ## Installation
 Install the dependencies with
@@ -26,7 +27,7 @@ _Note: For development installations it is recommended to instead run `./init.sh
 ## Profiling
 And profile the code performance using
 ```
-cd profiler && ./generate_pstats_profile.sh
+./profile.sh
 ```
 which will show a graphical representation of the most time consuming methods.
 
