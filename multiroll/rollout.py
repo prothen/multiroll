@@ -8,30 +8,9 @@ from .framework import *
 
 
 class Rollout(multiroll.simulator.Simulator):
-    """ 
+    """ Rollout implementation for networkX graph. """
 
-        Rollout only interacts with simulator to get flatland metrics. So
-        only simulator receives env argument.
-
-        Note:
-            agent_container:
-                - should provide feed_forward control to simulator
-                - should have current state
-                - should show if it has control choices at current step
-
-            simulator:
-                - move agents along prediction_horizon (track their states)
-                - compute reward for each prediction step
-                - provide method to return cost given agent_states
-
-
-    """
     def __init__(self, *args, **kwargs):
-        """ 
-
-            Note:
-                Specify desired keywords for this class explicitly
-        """
         super().__init__(*args, **kwargs)
         # Integer for prediction horizon
         self.prediction_horizon = 30
@@ -40,24 +19,30 @@ class Rollout(multiroll.simulator.Simulator):
         # Controls indexed by agent_id and action
         self._controls = dict()
 
-    def _rollout(self):
-        """ Execute rollout simulation for each agent. 
+    def update_agent_states(self):
+        """ Update each agent state with most recent flatland states.
 
             Note:
-                Returns the controls dictionary for all agents 
-                at current stage.
+                This also updates the agent's current graph node 
+                agent.current_node for the following heuristic algorithm.
 
-            Todo:
-                Consider edge priority and agent.state.status
+        """
+        for agent in self.agents.values():
+            agent.update()
+
+    def _rollout(self):
+        """ Execute rollout simulation for each agent.
+
+            Note:
+                Returns the controls dictionary for all agents
+                at current stage.
 
             Todo:
                 Use jit or keep context local with env update inside
         """
         d_M = self.prediction_horizon
-        self.sim_agents.reset()
-        for agent_id in self.agents.keys():
-            self._rollout(agent_id)
-            agent = self.sim_agents[agent_id]
+        for agent in self.sim_agents.values():
+            self._reset_sim_agents()
             state = agent.state
 
             # Get all available controls at state
@@ -67,31 +52,32 @@ class Rollout(multiroll.simulator.Simulator):
             costs = dict()
             # Heuristics indexed by controls
             heuristics = dict()
+
+            # Get active heuristic cost
             control_heuristic = agent.heuristic[state]
-            cost = self.simulator.simulate_steps(d_M)
+            cost = self.simulate_steps(d_M)
             costs[control_heuristic] = cost
 
-            # Remove heuristic
+            # Get cost for remaining control choices
             controls.pop(controls.index(control_heuristic))
             for control in controls:
-                if simulator.update_heuristic(agent_id, control):
-                    cost = simulator.simulate_steps(d_M)
-                heuristics[control] = agents[agent_id].heuristic
+                path, heuristic, status = self.compute_heuristic(agent)
+                if status == PathStatus.INFEASIBLE:
+                    cost[control] = Cost.INFEASIBLE
+                    print('Graph generation requires serious inspection.')
+                    raise RuntimeError()
+                agent.heuristic = heuristic
+                cost = self.simulate_steps(d_M)
+                heuristics[control] = (path, heuristic)
                 costs[control] = cost
 
             min_control = min(costs, key=costs.get)
             if min_control != control_heuristic:
-                # sim agents know which control has which heuristic
-                agent.update_heuristic(heuristics[min_control])
-            self._controls[agent.id] = min_control.control
+                agent.set_base_heuristic(heuristics[min_control])
+                self._controls[agent.id] = min_control.control
 
     def controls(self):
-        """ Conduct rollout and return the control.
-
-            Note:
-                Agents are transitioned in rollout()
-
-        """
+        """ Conduct rollout and return the control. """
         self._rollout()
 
         return self._controls
