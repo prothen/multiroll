@@ -36,7 +36,7 @@ class CoordinateContainer(Utils):
         # Direction to state mapping to recover same entry states for edge and their control
         self.direction2states = dict([(di, dict()) for di in Direction])
 
-        if debug_is_enabled:
+        if True or debug_is_enabled:
             print('\n##################################')
             print('##################################')
             print('Type: ', self.type)
@@ -49,19 +49,20 @@ class CoordinateContainer(Utils):
             d = Direction(d)
             state = State(coordinate.r, coordinate.c, d)
 
-            # Consider dead-ends TODO: debug
+            # Consider dead-ends NOTE: Waiting for debug exception
             valid_controls = controls
             for i, control in enumerate(controls):
                 if not self._is_railway(Simulator(state, control)):
                     print('\t\t->Encountered dead-end (Flip!)')
                     valid_controls[i] = ApplyDeadendControl(control)
+                    raise RuntimeError()
 
             self.controls[state] = valid_controls
             self.n_controls[state] = len(valid_controls)
-
             sc = StateContainer(state, self)
             self.states[state] = sc
             self.valid_states[state] = sc
+
             for control in valid_controls:
                 self.direction2states[control.direction][state] = control
 
