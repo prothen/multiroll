@@ -78,19 +78,24 @@ def main():
 
     controller = multiroll.rollout.Rollout(env, env_renderer,
                                            debug_is_enabled=DEBUG)
+
+    # Resolve control object
+    controls = controller.controls()
+    print('Initial control: {0}'.format(controls)
+
     timeme('Multiroll Setup: ')
     if DISPLAY_ACTIVE or STEP_ACTIVE:
         controller.visualise()
-        input('####Start testbed?')
+        #input('####Start testbed?')
         timeme_reset()
 
     for step in range(N_STEPS):
         print('##IT', step)
 
-        controller.update()
+        controller.update_agent_states()
         timeme('Multiroll - Update measurements: ')
 
-        controls = controller.controls()
+        controller.controls()
         timeme('Multiroll Controls: ')
 
         env.step(controls)
