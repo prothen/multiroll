@@ -29,17 +29,20 @@ numpy.random.seed(1)
 
 STEP_ACTIVE = True
 DISPLAY_ACTIVE = True
-PROFILING = True
 DEBUG = True
-PLOT_STEPS = 5
+# Plot every x environment steps
+# activate rollout algorithm
+ROLL_IT = True
 
 H = 50
 W = 50
-N_STEPS = 100
-N_AGENTS = 1
-N_CITIES = 8
-N_CONNECTIVITY = 8
 SEED = 14
+N_AGENTS = 4
+N_CITIES = 8
+PLOT_STEPS = 2
+N_SIM_STEPS = 400
+N_CONNECTIVITY = 8
+N_PREDICT_STEPS = 50
 
 
 gen_schedule = sparse_schedule_generator({1:1})
@@ -76,9 +79,12 @@ def main():
     env_renderer.reset()
     timeme('Flatland - Reset: ')
 
-    controller = multiroll.rollout.Rollout(env=env,
-                                           env_renderer=env_renderer,
-                                           debug_is_enabled=DEBUG)
+    controller = multiroll.rollout.Rollout(
+                    rollit = ROLL_IT,
+                    prediction_steps=N_PREDICT_STEPS,
+                    env=env,
+                    env_renderer=env_renderer,
+                    debug_is_enabled=DEBUG)
     timeme('Multiroll Setup: ')
 
     if DISPLAY_ACTIVE or STEP_ACTIVE:
@@ -86,7 +92,7 @@ def main():
         #input('####Start testbed?')
         timeme_reset()
 
-    for step in range(N_STEPS):
+    for step in range(N_SIM_STEPS):
         print('##IT', step)
 
         controller.update_agent_states()
@@ -116,6 +122,7 @@ if __name__ == "__main__":
     args = multiroll.parser.parse_args()
     DISPLAY_ACTIVE = args.display_active
     STEP_ACTIVE = args.step_active
+    ROLL_IT = args.rollout_active
 
     main()
 
