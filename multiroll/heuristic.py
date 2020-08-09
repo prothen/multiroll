@@ -33,6 +33,7 @@ class ShortestPath(multiroll.graph.Graph):
         """ Convert the networkX tuples into edge_container references. """
 
         path_nodes = list()
+        heuristic = dict()
         for idx, node in enumerate(path):
             if idx == len(path)-1:
                 continue
@@ -44,26 +45,15 @@ class ShortestPath(multiroll.graph.Graph):
             edge = self.edge_collection[StateControl(node, control)]
 
             # Get state to control mapping for path
-            heuristic = edge.path
+            heuristic.update(edge.path)
 
             # Path is [k_1, k_2, ..., k_M] add k_0 entry state
             heuristic.update([(node, control)])
 
-        # TODO
-        print(heuristic)
-        print('is control controlDirection??')
-        print(path)
-        print('is a list?')
-        raise RuntimeError()
         return path, heuristic
 
     def _algorithm(self, current, target):
-        """ Implementation of heuristic algorithm.
-
-            Todo:
-                Use all_shortest_path
-
-        """
+        """ Implementation of heuristic algorithm. """
         return networkx.shortest_path(self._graph, current, target, 'length')
 
     def compute_heuristic(self, agent):
@@ -74,10 +64,11 @@ class ShortestPath(multiroll.graph.Graph):
             try:
                 path_networkx = self._algorithm(current, target)
                 path, heuristic = self._path_from_networkx(path_networkx)
-                status = PathStatus.FEASIBLE_PATH
+                status = PathStatus.FEASIBLE
+                break
             except (networkx.exception.NodeNotFound, networkx.NetworkXNoPath) as e:
                 path = None
                 heuristic = None
-                status = PathStatus.INFEASIBLE_PATH
+                status = PathStatus.INFEASIBLE
         return path, heuristic, status
 
