@@ -58,12 +58,18 @@ class EdgeDirection(enum.IntEnum):
     FORWARD = 1
     BACKWARD = -1
 
+
 class AgentStatus(enum.IntEnum):
     NONE = 0
     INITIALISED = 1
-    INFEASIBLE_PATH = 2
-    FEASIBLE_PATH = 4
-    HAS_TARGET = 8
+    ON_PATH = 2
+    ON_NODE = 4
+
+
+class PathStatus(enum.IntEnum):
+    NONE = 0
+    INFEASIBLE = 1
+    FEASIBLE = 2
 
 
 class AgentMode(enum.IntEnum):
@@ -79,16 +85,18 @@ class GraphActivity(enum.IntEnum):
     ZERO = 0
     AGENT_ACTIVE = 1
 
+
 Tests = [[Control.L, -1],
          [Control.F, 0],
          [Control.R, 1]]
+
 
 class GlobalStatus(enum.IntEnum):
     NONE = 0
     HAS_RAILWAY = 1
     HAS_EDGES = 2
     HAS_GRAPH = 4
-    # TODO:
+
 
 FlipDirection = dict()
 FlipDirection[Direction.N] = Direction.S
