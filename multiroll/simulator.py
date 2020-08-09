@@ -29,8 +29,10 @@ class Simulation(multiroll.heuristic.ShortestPath):
         control = agent.controller[agent.state]
         state_next = Simulator(agent.state, control)
         coc_next = self.states[state_next]
+
         if self.occupancy[coc_next.id] == Occupancy.OCCUPIED:
             return False
+
         coc_now = self.states[agent.state]
         self.occupancy[coc_now.id] = Occupancy.FREE
         self.occupancy[coc_next.id] = Occupancy.OCCUPIED
@@ -40,6 +42,7 @@ class Simulation(multiroll.heuristic.ShortestPath):
     def _cost_for_commuters(self, agent):
         """ Penalise all agents that are in commute and not arrived yet. """
         target_id = self.railway[agent.target]
+
         if not target_id == self.states[agent.state].coc.id:
             return Cost.NOT_AT_TARGET
         return Cost.NONE
@@ -53,7 +56,7 @@ class Simulation(multiroll.heuristic.ShortestPath):
         # TODO: agents currently unordered! use collections.OrderedDict()
         for agent in self.sim_agents.values():
             if not self._transition(agent):
-                print('occupied or failure to transition')
+                # print('occupied or failure to transition')
                 cost += Cost.NO_TRANSITION
                 continue
             cost += self._cost_for_commuters(agent)
@@ -69,27 +72,17 @@ class Simulation(multiroll.heuristic.ShortestPath):
         return cost
 
 
-# TODO: move to constants
-class Occupancy:
-    FREE = 0
-    OCCUPIED = 1
-
-
-class Cost:
-    NONE = 0
-    NO_TRANSITION = 100
-    NOT_AT_TARGET = 10
-    INFEASIBLE = 10000000000000
-
-
-class SimAgentContainer:
+class SimAgentContainer(multiroll.agent.AgentContainer):
     """ Container that collects simulation related elements ."""
 
     def __init__(self, agent_native):
         self.id = agent_native.id
         self.state = agent_native.state
         self.status = agent_native.status
+        # target coordinate
         self.target = agent_native.target
+        # target states
+        self.target_nodes = agent_native.target_nodes
 
         # Define current simulation heuristic
         self.controller = agent_native.controller.copy()
@@ -106,4 +99,14 @@ class SimAgentContainer:
     def set_controller(self, path, controller):
         """ Update native AgentContainer with new controller. """
         self._agent.set_controller(path, controller)
+
+    def get_control(self):
+        """ Return control from underlying AgentContainer.
+
+            Note:
+                Meant for deployed real control usage.
+                Not for SimAgentContainer related actions.
+
+        """
+        return self._agent.controller[self.state].control
 
