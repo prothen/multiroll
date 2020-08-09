@@ -8,6 +8,7 @@ from multiroll import coordinate
 from multiroll import agent
 from multiroll import edge
 from multiroll import graph
+from multiroll import heuristic
 from multiroll import simulator
 from multiroll import rollout
 
