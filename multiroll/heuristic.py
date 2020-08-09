@@ -50,6 +50,8 @@ class ShortestPath(multiroll.graph.Graph):
             heuristic.update([(node, control)])
 
         # TODO
+        print(heuristic)
+        print('is control controlDirection??')
         print(path)
         print('is a list?')
         raise RuntimeError()
@@ -72,10 +74,10 @@ class ShortestPath(multiroll.graph.Graph):
             try:
                 path_networkx = self._algorithm(current, target)
                 path, heuristic = self._path_from_networkx(path_networkx)
-                status = AgentStatus.FEASIBLE_PATH
+                status = PathStatus.FEASIBLE_PATH
             except (networkx.exception.NodeNotFound, networkx.NetworkXNoPath) as e:
                 path = None
                 heuristic = None
-                status = AgentStatus.INFEASIBLE_PATH
+                status = PathStatus.INFEASIBLE_PATH
         return path, heuristic, status
 
