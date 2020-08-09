@@ -39,23 +39,11 @@ from .agent import *
 from .edge import *
 
 class Graph(Utils):
-    """Container for graph related actions.
+    """ Graph implementation based on networkX.
 
-        Note:
-            Update active edges or compute shortest path.
-
-        Note: / TODO:
-            Maybe easier to maintain two graphs (one complete and a subset 
-            dynamically updated)
-
-        Todo: 
-            - Use all_shortest_path computation 
-            - Use graph_complete mirror and 
-                - use graph_complete.copy() to reset dynamic?
     """
     def __init__(self, env, env_renderer=None, debug_is_enabled=None):
         self.switch_debug_mode(debug_is_enabled)
-        self.visualisation_is_enabled = True
 
         set_env(env)
         multiroll.display.set_env_renderer(env_renderer)
@@ -185,15 +173,8 @@ class Graph(Utils):
             node.edges.append(edge_container_id)
 
     def _create_graph(self):
-        """ Initialise networkx graph with all edges.
-
-            Todo:
-                - use
-                    path = networkx.shortest_path(self._graph_complete, weight='length')
-                    testpath = networkx.all_shortest_path(self._graph_complete
-
-        """
-        self._graph_complete.clear()
+        """ Initialise networkx graph with all edges. """
+        self._graph.clear()
         for edge_container in self.edges.values():
             edges = edge_container.get_edges(consider_vote=False)
             for edge in edges:
@@ -202,15 +183,14 @@ class Graph(Utils):
 
 
     def visualise(self):
-        """ Call display utility methods and visualise metrics and states. 
+        """ Call display utility methods and visualise metrics and states.
 
             Todo:
                 Add graph visualisation specifics.
 
         """
-        if self.visualisation_is_enabled:
-            multiroll.display.show_agents(self.agents.values())
-            multiroll.display.show()
+        multiroll.display.show_agents(self.agents.values())
+        multiroll.display.show()
 
 
 if __name__ == "__main__":
