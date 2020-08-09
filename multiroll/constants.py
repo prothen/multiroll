@@ -125,6 +125,8 @@ ApplyDeadendControl = (lambda control:
 
 # Dynamics of environment
 Dynamics = dict()
+# If on goal state direction is None -> no movement
+Dynamics[None] = (lambda state: State(state.r, state.c, state.d))
 Dynamics[Direction.N] = (lambda state: State(state.r-1, state.c, Direction.N))
 Dynamics[Direction.E] = (lambda state: State(state.r, state.c+1, Direction.E))
 Dynamics[Direction.S] = (lambda state: State(state.r+1, state.c, Direction.S))
@@ -136,8 +138,8 @@ Simulator = (lambda state, control: Dynamics[control.direction](state))
 
 # LEGACY Control of current state to transition state
 Simulate = dict()
-Simulate[Control.NONE] = (lambda state, control: State(state.r, state.c,
-                            Dynamics[control.direction](state).direction))
+#Simulate[Control.NONE] = (lambda state, control: State(state.r, state.c,
+#                            Dynamics[control.direction](state).direction))
 Simulate[Control.L] = (lambda state, control: Dynamics[control.direction](state))
 Simulate[Control.F] = (lambda state, control: Dynamics[control.direction](state))
 Simulate[Control.R] = (lambda state, control: Dynamics[control.direction](state))
