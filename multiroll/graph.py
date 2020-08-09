@@ -176,7 +176,7 @@ class Graph(Utils):
         """ Initialise networkx graph with all edges. """
         self._graph.clear()
         for edge_container in self.edges.values():
-            edges = edge_container.get_edges(consider_vote=False)
+            edges = edge_container.get_edges()
             for edge in edges:
                 self._graph.add_edge(*edge.pair, length=edge.length)
         return
