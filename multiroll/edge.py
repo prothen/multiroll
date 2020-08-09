@@ -8,46 +8,15 @@ from .agent import *
 
 
 class EdgeContainer(Utils):
-    """ Edge related metrics and occupancy trackers.
+    """ Edge related metrics and occupancy trackers. """
 
-        Note:
-            Set default debug_is_enabled=None to fetch
-            global debug_mode and set to True to activate
-            debug for all EdgeContainers.
-
-        Note:
-            After vote evaluation edge dict references are added to
-            edge_action under EdgeActionType key.
-            The entries are then fetched using get_edge_updates(),
-            which is conditioned on note(self.vote_status & ELECTED) and
-            on completion sets | VoteStatus.ELECTED
-
-        Todo:
-            1.
-                Register agents and their planned entry step
-                -> If agent registers and no vote done -> force switch
-
-            2.
-                Add collision matrix with agent steps for
-                global N prediction steps along path length M
-                -> matrix &operator should yield zero for collision free
-
-            3.
-                AgentContainer -> get_control -> update current_edge -> move_agent
-                    - If edge exit, select next edge_id from path_id
-
-            4. Voting has matured to a point that deserves a separate object.
-
-            5. Mange voting result globally through dictionary on edge_container 
-                -> move self.vote to a dict under GlobalContainer
-    """
     def __init__(self, ID, debug_is_enabled=True):
         self.id = ID
         self.switch_debug_mode(debug_is_enabled)
 
         # EdgeDirection key with goal_state value
         self.goal_state = dict()
-        # DirectionType key and common path values (2 entries)
+        # DirectionType indexed controllers (State, ControlDirection) pairs
         self.path = dict()
         # State keys and EdgeDirection values
         self.length = None
@@ -104,35 +73,7 @@ class EdgeContainer(Utils):
             self.state2direction[state] = edge_direction
         self.length = len(path)
 
-    def get_edges(self, consider_vote=True):
-        """ Return available edges under evaluated vote.
-
-            Note:
-                If no agent has claimed interest, all edges are returned.
-        """
-        if consider_vote:
-            self.evaluate_vote()
-            return self._edges[self._vote_result()].values()
+    def get_edges(self):
+        """ Return all available edges for this EdgeContainer. """
         return self._edge_registry.values()
-
-    def get_agent_progress(self, agent_id, state):
-        """ Update agent_id edge progress and return eta in cell count.
-
-            Note:
-                If the returned eta is zero the agent calling this method
-                will pop a edge_container_id from his path and move to the
-                next.
-
-            Note:
-                On zero progress the entry trigger is invoked and on
-                estimated time of arrival (ETA) with eta being zero the
-                exit trigger.
-        """
-        a = self.agents[agent_id]
-        sc = self.states[a.state]
-        progress = self.state2progress[state]
-        if not progress:
-            self.enter(state, agent_id)
-        eta = self.length -1 - progress
-        return eta
 
