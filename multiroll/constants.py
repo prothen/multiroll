@@ -99,15 +99,15 @@ class GlobalStatus(enum.IntEnum):
 
 
 class Occupancy:
-    FREE = 0
-    OCCUPIED = 1
+    FREE = 1
+    OCCUPIED = 2
 
 
 class Cost:
     NONE = 0
-    NO_TRANSITION = 100
+    NO_TRANSITION = 1
     NOT_AT_TARGET = 10
-    INFEASIBLE = 10000000000000
+    INFEASIBLE = 100
 
 
 FlipDirection = dict()
