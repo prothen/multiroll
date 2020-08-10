@@ -25,11 +25,13 @@ class Simulation(multiroll.heuristic.ShortestPath):
             coc_id = self.states[agent.state].coc.id
             self.occupancy[coc_id] = Occupancy.OCCUPIED
 
-    def _reset_sim_agents(self):
-        """ Reset all SimAgentContainer to AgentContainer states. """
-        self.occupancy = [Occupancy.FREE] * len(self.railway.values())
+    def _reset_sim(self):
+        """ Reset all simulation related objects and initialise correspondingly. """
+        # TODO: label reset_sim
+        #self.occupancy = [Occupancy.FREE] * len(self.railway.values())
         for agent in self.sim_agents.values():
             agent.reset()
+        self._init_sim_occupancy()
 
     def _transition(self, agent):
         """ Return true for successful transition and update agent state. """
@@ -60,27 +62,43 @@ class Simulation(multiroll.heuristic.ShortestPath):
             return Cost.NOT_AT_TARGET
         return Cost.NONE
 
-    def _simulate_step(self):
-        """ Return cost for all SimAgentContainers according to their
-            recent heuristic moving one step.
-
-        """
-        cost = 0
-        # TODO: agents currently unordered! use collections.OrderedDict()
-        for agent in self.sim_agents.values():
-            cost += self._cost_for_commuters(agent)
-            if not self._transition(agent):
-                cost += Cost.NO_TRANSITION
-                continue
-        return cost
-
     def simulate_steps(self, steps):
         """ Simulate steps and return total cost. """
 
-        self._init_sim_occupancy()
         cost = 0
         for step in range(steps):
-            cost += self._simulate_step()
+            for agent in self.sim_agents.values():
+                target_id = self.railway[agent.target].id
+
+                if target_id == self.states[agent.state].coc.id:
+                    coc_now = self.states[agent.state].coc
+                    self.occupancy[coc_now.id] = Occupancy.FREE
+                    continue
+                cost += Cost.NOT_AT_TARGET
+                # cost += self._cost_for_commuters(agent)
+
+                control = agent.controller[agent.state]
+                state_next = Simulator(agent.state, control)
+                coc_next = self.states[state_next].coc
+                coc_now = self.states[agent.state].coc
+
+                #print(self.occupancy)
+                print('\nAgent: ', agent.id)
+                print('From', agent.state, ' to ', state_next)
+                print('Control: ', control)
+                print('Occupancy:' , self.occupancy[coc_next.id],
+                      '->' ,self.occupancy[coc_now.id]) 
+                if Occupancy(self.occupancy[coc_next.id]) & Occupancy.OCCUPIED:
+                    continue
+                self.occupancy[coc_now.id] = Occupancy.FREE
+                self.occupancy[coc_next.id] = Occupancy.OCCUPIED
+                agent.state = state_next
+                cost += Cost.NO_TRANSITION
+                #if not self._transition(agent):
+                #    cost += Cost.NO_TRANSITION
+                #print('Agent: ', agent.id, 'State: ', agent.state, ' - Cost: ', cost)
+        print(cost)
+        print(type(cost))
         return cost
 
 
@@ -112,6 +130,9 @@ class SimAgentContainer(multiroll.agent.AgentContainer):
 
     def set_controller(self, path, controller):
         """ Update native AgentContainer with new controller. """
+        # TODO: REMOVE duplicate
+        self.path = path
+        self.controller = controller.copy()
         self._agent.set_controller(path, controller)
 
     def get_control(self):
@@ -123,4 +144,7 @@ class SimAgentContainer(multiroll.agent.AgentContainer):
 
         """
         return self._agent.controller[self.state].control
-
+    
+    def update(self):
+        # TODO: debug update
+        self._agent.update()
