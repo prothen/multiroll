@@ -10,12 +10,11 @@ from .framework import *
 class Rollout(multiroll.simulator.Simulation):
     """ Rollout implementation for networkX graph. """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, rollit=False, prediction_steps=50, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._rollit = rollit
         # Integer for prediction horizon
-        self.prediction_horizon = 30
-        # priority dictionary: sorted agents according to their current edge
-        self.priority_dict = None
+        self.prediction_horizon = prediction_steps
         # Controls indexed by agent_id and action
         self._controls = dict()
 
@@ -70,36 +69,34 @@ class Rollout(multiroll.simulator.Simulation):
                 continue
             print('Rollout TRIGGERED.')
 
-            state = agent.state
- 
             # Get all available controls at state
+            state = agent.state
             controls = self.states[state].controls.copy()
+            print('###### All controls:', controls)
 
-            # Add stop control
-
-            print('###controls:', controls)
-            raise RuntimeError()
             # Costs indexed by corresponding control
             costs = dict()
             # Heuristics indexed by controls at current step
             heuristics = dict()
 
-            # Get active heuristic cost
-            sc = self.states[agent.state]
+            # Simulate with default heuristic
             control_heuristic = agent.controller[agent.state]
             cost = self.simulate_steps(d_M)
-            print('All controls:', controls)
-            print('State', agent.state)
-            #print('Heuristic', agent.controller)
-            #for state in agent.controller.keys():
-            #    print('State: \t{} \t{} \t{}'.format(state.r, state.c, state.d))
-            #print('Edges', sc.edges)
-            #print('Agent edges', agent._agent.path)
-            #print('Targets', agent.target_nodes)
-            print('base cost:', cost)
-            print('control:', control_heuristic)
+            print('Rollout result for: ', control_heuristic)
+            print('     -> Has cost:', cost)
             costs[control_heuristic] = cost
             self._reset_sim_agents()
+
+            # Simulate with Control.S
+            stop_control = ControlDirection(Control.S, None)
+            agent.heuristic = dict([(state, stop_control)])
+            control = agent.controller[agent.state]
+            cost = self.simulate_steps(d_M)
+            heuristics[stop_control] = (agent._agent.path[0], control)
+            costs[stop_control] = cost
+            self._reset_sim_agents()
+            print('Rollout result for: ', stop_control)
+            print('     -> Has cost:', cost)
 
             # Get cost for remaining control choices
             controls.pop(controls.index(control_heuristic))
@@ -109,15 +106,20 @@ class Rollout(multiroll.simulator.Simulation):
                     costs[control] = Cost.INFEASIBLE
                     print('Graph generation requires serious inspection.')
                     raise RuntimeError()
+                    continue
                 agent.heuristic = heuristic
                 cost = self.simulate_steps(d_M)
-                print('current cost:', cost)
-                print('control:', control)
                 heuristics[control] = (path, heuristic)
                 costs[control] = cost
                 self._reset_sim_agents()
+                print('Rollout result for: ', control)
+                print('     -> Has cost:', cost)
+
+            print('costs', costs)
 
             min_control = min(costs, key=costs.get)
+            print('Selected: ', min_control)
+            #raise RuntimeError()
             if min_control != control_heuristic:
                 print('\n\n#######################')
                 print('select new Control :', min_control)
@@ -129,7 +131,8 @@ class Rollout(multiroll.simulator.Simulation):
 
     def controls(self):
         """ Conduct rollout and return the control. """
-        self._rollout()
-
-        return self._controls
+        if self._rollit:
+            self._rollout()
+            return self._controls
+        return dict([(agent.id, agent.get_control()) for agent in self.agents.values()])
 
