@@ -17,7 +17,7 @@ Install the dependencies with
 pip install --requirements.txt
 ```
 
-And install the rollout package with
+And install the multiroll package with
 ```
 pip install .
 ```
