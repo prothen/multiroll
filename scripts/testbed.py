@@ -35,12 +35,12 @@ ROLL_IT = True
 H = 50
 W = 50
 SEED = 14
-N_AGENTS = 30
+N_AGENTS = 7
 N_CITIES = 3
 PLOT_STEPS = 2
-N_SIM_STEPS = 150
+N_SIM_STEPS = 100
 N_CONNECTIVITY = 10
-N_PREDICT_STEPS = 500
+N_PREDICT_STEPS = 50
 
 
 gen_schedule = sparse_schedule_generator({1:1})
