@@ -128,4 +128,7 @@ class AgentContainer(Utils):
             if self.state in self.path:
                 self.path = self.path[self.path.index(self.state)+1:]
                 self.status = AgentStatus.ON_NODE
+            if len(self.path) == 0:
+                self.path_status = PathStatus.INFEASIBLE
+                self.status = AgentStatus.NONE
 
