@@ -53,16 +53,22 @@ class Rollout(multiroll.simulator.Simulation):
         import flatland
         d_M = self.prediction_horizon
         for agent in self.sim_agents.values():
-            self._reset_sim_agents()
+            print('#########################')
+            print('Rollout-Algorithm:')
+            # TODO: remove reset_sim (should be called after each sim agent
+            self._reset_sim()
+            # TODO: add agent method to access flatland
             dest_reached = agent._agent._agent.status == flatland.envs.agent_utils.RailAgentStatus.DONE_REMOVED
             not_vertex =  not self.states[agent.state].type == StateType.VERTEX
             check =  [not_vertex, dest_reached]
-            if self.debug_is_enabled:
-                print('Agent:', agent._agent._agent.status)
-                print('Path:', agent._agent.path_status)
-                print('StateType:', self.states[agent.state].type)
-                print('Skip rollout checks [not_vertex, dest_reached]')
-                print(check)
+            if True:# self.debug_is_enabled:
+                print('\tAgent:', agent.id)
+                print('\tStatus:', agent._agent._agent.status)
+                print('\tState:', agent.state)
+                print('\tPath:', agent._agent.path_status)
+                print('\tStateType:', self.states[agent.state].type)
+                print('\tSkip rollout checks [not_vertex, dest_reached]')
+                print('\t\t', check)
             if any(check):
                 print('Rollout SKIPPED.')
                 self._controls[agent.id] = agent.get_control()
@@ -70,8 +76,7 @@ class Rollout(multiroll.simulator.Simulation):
             print('Rollout TRIGGERED.')
 
             # Get all available controls at state
-            state = agent.state
-            controls = self.states[state].controls.copy()
+            controls = self.states[agent.state].controls.copy()
             print('###### All controls:', controls)
 
             # Costs indexed by corresponding control
@@ -81,38 +86,49 @@ class Rollout(multiroll.simulator.Simulation):
 
             # Simulate with default heuristic
             control_heuristic = agent.controller[agent.state]
+            print('Base heuristic: ', control_heuristic)
             cost = self.simulate_steps(d_M)
-            print('Rollout result for: ', control_heuristic)
             print('     -> Has cost:', cost)
             costs[control_heuristic] = cost
-            self._reset_sim_agents()
+            self._reset_sim()
 
             # Simulate with Control.S
+            # TODO: move to constants as define StopControl 
             stop_control = ControlDirection(Control.S, None)
-            agent.heuristic = dict([(state, stop_control)])
-            control = agent.controller[agent.state]
-            cost = self.simulate_steps(d_M)
-            heuristics[stop_control] = (agent._agent.path[0], control)
-            costs[stop_control] = cost
-            self._reset_sim_agents()
-            print('Rollout result for: ', stop_control)
-            print('     -> Has cost:', cost)
 
             # Get cost for remaining control choices
             controls.pop(controls.index(control_heuristic))
             for control in controls:
-                path, heuristic, status = self.compute_heuristic(agent)
+                print('Alternative controls: ', control)
+                if control == stop_control:
+                    path = [agent.state]
+                    heuristic = dict([(agent.state, stop_control)])
+                    status = PathStatus.FEASIBLE
+                else:
+                    next_edge = self.edge_collection[StateControl(agent.state, control)]
+                    edge_container = self.edges[next_edge.container_id]
+                    source = edge_container.goal_state[edge_container.state2direction[agent.state]]
+                    next_heuristic = next_edge.path[:-1]  # TODO: remove goal state
+                    path, heuristic, status = self.compute_heuristic(agent, source)
+                    # TODO: this should be unneccessary now heuristic[agent.state] = control
+                    heuristic.update(next_heuristic)
                 if status == PathStatus.INFEASIBLE:
                     costs[control] = Cost.INFEASIBLE
                     print('Graph generation requires serious inspection.')
                     raise RuntimeError()
                     continue
-                agent.heuristic = heuristic
+                # TODO:update current state control pair 
+                print('##################################')
+                print('##################################')
+                print('##################################')
+                print('Heuristic:', heuristic[agent.state])
+                print('##################################')
+                print('##################################')
+                agent.controller = (heuristic.copy())
                 cost = self.simulate_steps(d_M)
                 heuristics[control] = (path, heuristic)
                 costs[control] = cost
-                self._reset_sim_agents()
-                print('Rollout result for: ', control)
+                self._reset_sim()
                 print('     -> Has cost:', cost)
 
             print('costs', costs)
@@ -124,8 +140,8 @@ class Rollout(multiroll.simulator.Simulation):
                 print('\n\n#######################')
                 print('select new Control :', min_control)
                 print('cost:', costs[min_control])
-                raise RuntimeError()
-                agent.set_controller(heuristics[min_control])
+                #raise RuntimeError()
+                agent.set_controller(*heuristics[min_control])
             # self._controls[agent.id] = min_control.control
             self._controls[agent.id] = agent.get_control()
 
