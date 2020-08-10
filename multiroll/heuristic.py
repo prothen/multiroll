@@ -56,10 +56,10 @@ class ShortestPath(multiroll.graph.Graph):
         """ Implementation of heuristic algorithm. """
         return networkx.shortest_path(self._graph, current, target, 'length')
 
-    def compute_heuristic(self, agent):
+    def compute_heuristic(self, agent, source=None):
         """ Return heuristic for agent. """
 
-        current = agent.current_node
+        current = agent.current_node if source is None else source
         for target in agent.target_nodes.keys():
             try:
                 path_networkx = self._algorithm(current, target)
