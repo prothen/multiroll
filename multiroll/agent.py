@@ -98,8 +98,11 @@ class AgentContainer(Utils):
 
     def set_controller(self, path, controller):
         """ Update edge_id and state to control dictionary. """
+        # TODO: if ON_NODE -> get edge that leads to path
         self.path = path
         self.controller.update(controller)
+        # TODO: Refactor and clean up (not necessary)
+        self.controller.update([(path[-1], ControlDirection(Control.S, None))])
         self.path_status = PathStatus.FEASIBLE
 
     def get_control(self):
@@ -115,6 +118,11 @@ class AgentContainer(Utils):
                 property access.
 
         """
+        if self.state in self.targets:
+            print('REACHED goal')
+            self.controller.update([(self.state, ControlDirection(Control.S, None))])
+            #self.contr
+        #if self.states[self.state].coc.id == self.
         if not self._agent.status == flatland.envs.agent_utils.RailAgentStatus.ACTIVE:
             return
         a = self._agent
