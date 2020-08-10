@@ -75,30 +75,25 @@ class Simulation(multiroll.heuristic.ShortestPath):
                     self.occupancy[coc_now.id] = Occupancy.FREE
                     continue
                 cost += Cost.NOT_AT_TARGET
-                # cost += self._cost_for_commuters(agent)
 
                 control = agent.controller[agent.state]
                 state_next = Simulator(agent.state, control)
                 coc_next = self.states[state_next].coc
                 coc_now = self.states[agent.state].coc
 
-                #print(self.occupancy)
-                print('\nAgent: ', agent.id)
-                print('From', agent.state, ' to ', state_next)
-                print('Control: ', control)
-                print('Occupancy:' , self.occupancy[coc_next.id],
-                      '->' ,self.occupancy[coc_now.id]) 
+                if False:
+                    #print(self.occupancy)
+                    print('\nAgent: ', agent.id)
+                    print('From', agent.state, ' to ', state_next)
+                    print('Control: ', control)
+                    print('Occupancy:' , self.occupancy[coc_next.id],
+                          '->' ,self.occupancy[coc_now.id]) 
                 if Occupancy(self.occupancy[coc_next.id]) & Occupancy.OCCUPIED:
                     continue
                 self.occupancy[coc_now.id] = Occupancy.FREE
                 self.occupancy[coc_next.id] = Occupancy.OCCUPIED
                 agent.state = state_next
                 cost += Cost.NO_TRANSITION
-                #if not self._transition(agent):
-                #    cost += Cost.NO_TRANSITION
-                #print('Agent: ', agent.id, 'State: ', agent.state, ' - Cost: ', cost)
-        print(cost)
-        print(type(cost))
         return cost
 
 
