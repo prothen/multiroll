@@ -50,13 +50,13 @@ class Rollout(multiroll.simulator.Simulation):
             Todo:
                 Use jit or keep context local with env update inside
         """
-        import flatland
         d_M = self.prediction_horizon
-        for agent in self.sim_agents.values():
-            # TODO: remove reset_sim (should be called after each sim agent
+        self._update_active_agents()
+        for agent in self.sim_agents_active.values():
+            print('\tAgent:', agent.id)
+            print('\tStatus:', agent.status)
             self._reset_sim()
-            # TODO: add agent method to access flatland
-            dest_reached = agent._agent._agent.status == flatland.envs.agent_utils.RailAgentStatus.DONE_REMOVED
+            dest_reached = agent._agent._agent.status == FlatlandAgentStatus.DONE_REMOVED
             not_vertex =  not self.states[agent.state].type == StateType.VERTEX
             check =  [not_vertex, dest_reached]
             if any(check):
@@ -65,13 +65,14 @@ class Rollout(multiroll.simulator.Simulation):
                 continue
             print('#########################')
             print('Rollout-Algorithm:')
-            #print('Rollout TRIGGERED.')
-            if True:# self.debug_is_enabled:
-                print('\tAgent:', agent.id)
-                print('\tStatus:', agent._agent._agent.status)
-                print('\tState:', agent.state)
-                print('\tPath:', agent._agent.path_status)
-                print('\tStateType:', self.states[agent.state].type)
+            if True: # self.debug_is_enabled:
+                print('\tAgent:\t', agent.id)
+                print('\tStatus:\t', agent.status)
+                print('\tStatus (Fl):\t', agent._agent._agent.status)
+                print('\tState:\t', agent.state)
+                print('\tTarget:\t', agent.target)
+                print('\tPath:\t', agent._agent.path_status)
+                print('\tStateType:\t', self.states[agent.state].type)
                 print('\tSkip rollout checks [not_vertex, dest_reached]')
                 print('\t\t', check)
 
@@ -86,15 +87,14 @@ class Rollout(multiroll.simulator.Simulation):
 
             # Simulate with default heuristic
             control_heuristic = agent.controller[agent.state]
-            print('Base heuristic: ', control_heuristic)
+            print('Base heuristic: \t', control_heuristic.control)
             cost = self.simulate_steps(d_M)
             print('     -> Has cost:', cost)
             costs[control_heuristic] = cost
             self._reset_sim()
 
             # Simulate with Control.S
-            # TODO: move to constants as define StopControl 
-            stop_control = ControlDirection(Control.S, None)
+            stop_control = DontMoveControl
             stop_path = [agent.state]
             stop_heuristic = dict([(agent.state, stop_control)])
             controls.append(stop_control)
@@ -102,7 +102,7 @@ class Rollout(multiroll.simulator.Simulation):
             # Get cost for remaining control choices
             controls.pop(controls.index(control_heuristic))
             for control in controls:
-                print('Alternative controls: ', control)
+                print('Alternative controls: \t', control.control)
                 if control == stop_control:
                     path = [agent.state]
                     heuristic = dict([(agent.state, stop_control)])
@@ -131,13 +131,11 @@ class Rollout(multiroll.simulator.Simulation):
 
             min_control = min(costs, key=costs.get)
             print('Selected: ', min_control)
-            #raise RuntimeError()
             if min_control != control_heuristic:
                 print('\n\n#######################')
                 print('select new Control :', min_control)
                 print('cost:', costs[min_control])
                 agent.set_controller(*heuristics[min_control])
-            # self._controls[agent.id] = min_control.control
             self._controls[agent.id] = agent.get_control()
 
     def controls(self):
