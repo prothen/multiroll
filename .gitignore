@@ -4,3 +4,4 @@ tests
 figures/*
 resources/*
 update.sh
+docs/_build
