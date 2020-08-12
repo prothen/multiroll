@@ -5,8 +5,6 @@
 
 """
 
-import flatland
-
 
 from .constants import *
 from .framework import *
@@ -79,6 +77,10 @@ class AgentContainer(Utils):
 
             Note:
                 If on edge use its path as heuristic.
+
+            Note:
+                This is called only once during the graph generation.
+
         """
         self.reset_path()
         state_container = self.states[self.state]
@@ -118,18 +120,24 @@ class AgentContainer(Utils):
                 property access.
 
         """
-        if self.state in self.targets:
-            print('REACHED goal')
-            self.controller.update([(self.state, ControlDirection(Control.S, None))])
-            #self.contr
-        #if self.states[self.state].coc.id == self.
-        if not self._agent.status == flatland.envs.agent_utils.RailAgentStatus.ACTIVE:
+        print('Agent', self.id,':', self.status)
+        # TODO: document which cases are dropped her (RTD)
+        if not self._agent.status == FlatlandAgentStatus.ACTIVE:
+            if self._agent.status == FlatlandAgentStatus.DONE_REMOVED:
+                # TODO: set to None to identify post-goal access violations 
+                # self.state = None
+                self.status = AgentStatus.ON_TARGET
             return
         a = self._agent
         d = a.direction
         (r, c) = a.position
         d = Direction(a.direction)
         self.state = State(r, c, d)
+        if self.state in self.target_nodes:
+            self.states = AgentStatus.ON_TARGET
+            #print('REACHED goal. STOPPING')
+            #raise RuntimeError()
+            self.controller.update([(self.state, ControlDirection(Control.S, None))])
 
         if not self.path_status == PathStatus.INFEASIBLE:
             self.status = AgentStatus.ON_PATH
