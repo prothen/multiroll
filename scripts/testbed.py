@@ -32,15 +32,15 @@ DISPLAY_ACTIVE = True
 DEBUG = True
 ROLL_IT = True
 
-H = 50
-W = 50
+H = 40
+W = 60
 SEED = 14
 N_AGENTS = 10
-N_CITIES = 3
+N_CITIES = 9
 PLOT_STEPS = 2
-N_SIM_STEPS = 200
-N_CONNECTIVITY = 10
-N_PREDICT_STEPS = 30
+N_SIM_STEPS = 700
+N_CONNECTIVITY = 4
+N_PREDICT_STEPS = 50
 
 
 gen_schedule = sparse_schedule_generator({1:1})
@@ -54,7 +54,7 @@ env = RailEnv(
             seed=SEED,
             grid_mode=False,
             max_rails_between_cities=10,
-            max_rails_in_city=10,
+            max_rails_in_city=N_CONNECTIVITY,
             ),
         schedule_generator=gen_schedule,
         number_of_agents=N_AGENTS,
