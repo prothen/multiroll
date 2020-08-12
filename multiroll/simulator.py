@@ -99,6 +99,9 @@ class Simulation(multiroll.heuristic.ShortestPath):
                     print('Occupancy:' , self.occupancy[coc_now.id],
                           '->' ,self.occupancy[coc_next.id]) 
                 if Occupancy(self.occupancy[coc_next.id]) & Occupancy.OCCUPIED:
+                    if control == DontMoveControl:
+                        cost += Cost.NOT_AT_TARGET
+                        continue
                     cost += Cost.NO_TRANSITION
                     continue
                 self.occupancy[coc_now.id] = Occupancy.FREE
