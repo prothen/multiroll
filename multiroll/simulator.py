@@ -81,19 +81,19 @@ class Simulation(multiroll.heuristic.ShortestPath):
                 coc_next = self.states[state_next].coc
                 coc_now = self.states[agent.state].coc
 
-                if False:
+                if True: #False:
                     #print(self.occupancy)
                     print('\nAgent: ', agent.id)
                     print('From', agent.state, ' to ', state_next)
                     print('Control: ', control)
-                    print('Occupancy:' , self.occupancy[coc_next.id],
-                          '->' ,self.occupancy[coc_now.id]) 
+                    print('Occupancy:' , self.occupancy[coc_now.id],
+                          '->' ,self.occupancy[coc_next.id]) 
                 if Occupancy(self.occupancy[coc_next.id]) & Occupancy.OCCUPIED:
+                    cost += Cost.NO_TRANSITION
                     continue
                 self.occupancy[coc_now.id] = Occupancy.FREE
                 self.occupancy[coc_next.id] = Occupancy.OCCUPIED
                 agent.state = state_next
-                cost += Cost.NO_TRANSITION
         return cost
 
 
