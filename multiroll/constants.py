@@ -4,6 +4,12 @@ import enum
 import collections
 
 
+import flatland
+
+
+FlatlandAgentStatus = flatland.envs.agent_utils.RailAgentStatus
+
+
 # Defines a coordinate with row and column
 Coordinate = collections.namedtuple('Coordinate', ['r', 'c'])
 # Defines a state with its row column and direction
@@ -32,6 +38,7 @@ class Control(enum.IntEnum):
     R = 3
     S = 4
 
+DontMoveControl = ControlDirection(Control.S, None)
 
 class Priority(enum.IntEnum):
     """ Priority definition for edges. """
@@ -64,6 +71,7 @@ class AgentStatus(enum.IntEnum):
     INITIALISED = 1
     ON_PATH = 2
     ON_NODE = 4
+    ON_TARGET = 6
 
 
 class PathStatus(enum.IntEnum):
@@ -106,7 +114,7 @@ class Occupancy(enum.IntEnum):
 class Cost:
     NONE = 0
     NO_TRANSITION = 1000
-    NOT_AT_TARGET = 0
+    NOT_AT_TARGET = 10
     INFEASIBLE = 1000000
 
 
