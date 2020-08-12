@@ -52,9 +52,10 @@ class Rollout(multiroll.simulator.Simulation):
         """
         d_M = self.prediction_horizon
         self._update_active_agents()
+        cost_base_heuristic = None
         for agent in self.sim_agents_active.values():
-            print('\tAgent:', agent.id)
-            print('\tStatus:', agent.status)
+            #print('\tAgent:', agent.id)
+            #print('\tStatus:', agent.status)
             self._reset_sim()
             dest_reached = agent._agent._agent.status == FlatlandAgentStatus.DONE_REMOVED
             not_vertex =  not self.states[agent.state].type == StateType.VERTEX
@@ -63,9 +64,9 @@ class Rollout(multiroll.simulator.Simulation):
                 #print('Rollout SKIPPED.')
                 self._controls[agent.id] = agent.get_control()
                 continue
-            print('#########################')
-            print('Rollout-Algorithm:')
-            if True: # self.debug_is_enabled:
+            #print('#########################')
+            #print('Rollout-Algorithm:')
+            if False: # self.debug_is_enabled:
                 print('\tAgent:\t', agent.id)
                 print('\tStatus:\t', agent.status)
                 print('\tStatus (Fl):\t', agent._agent._agent.status)
@@ -78,7 +79,7 @@ class Rollout(multiroll.simulator.Simulation):
 
             # Get all available controls at state
             controls = self.states[agent.state].controls.copy()
-            print('###### All controls:', controls)
+            #print('###### All controls:', controls)
 
             # Costs indexed by corresponding control
             costs = dict()
@@ -87,9 +88,12 @@ class Rollout(multiroll.simulator.Simulation):
 
             # Simulate with default heuristic
             control_heuristic = agent.controller[agent.state]
-            print('Base heuristic: \t', control_heuristic.control)
-            cost = self.simulate_steps(d_M)
-            print('     -> Has cost:', cost)
+            #print('Base heuristic: \t', control_heuristic.control)
+            if cost_base_heuristic is None:
+                cost = self.simulate_steps(d_M)
+            else:
+                cost = cost_base_heuristic
+            #print('     -> Has cost:', cost)
             costs[control_heuristic] = cost
             self._reset_sim()
 
@@ -102,7 +106,7 @@ class Rollout(multiroll.simulator.Simulation):
             # Get cost for remaining control choices
             controls.pop(controls.index(control_heuristic))
             for control in controls:
-                print('Alternative controls: \t', control.control)
+                # print('Alternative controls: \t', control.control)
                 if control == stop_control:
                     path = [agent.state]
                     heuristic = dict([(agent.state, stop_control)])
@@ -117,7 +121,7 @@ class Rollout(multiroll.simulator.Simulation):
                     heuristic.update(next_heuristic)
                 if status == PathStatus.INFEASIBLE:
                     costs[control] = Cost.INFEASIBLE
-                    print('Graph generation requires serious inspection.')
+                    #print('Graph generation requires serious inspection.')
                     raise RuntimeError()
                     continue
                 agent.controller = (heuristic.copy())
@@ -125,18 +129,20 @@ class Rollout(multiroll.simulator.Simulation):
                 heuristics[control] = (path, heuristic)
                 costs[control] = cost
                 self._reset_sim()
-                print('     -> Has cost:', cost)
+                #print('     -> Has cost:', cost)
 
-            print('costs', costs)
+            #print('costs', costs)
 
             min_control = min(costs, key=costs.get)
-            print('Selected: ', min_control)
+            #print('Selected: ', min_control)
             if min_control != control_heuristic:
-                print('\n\n#######################')
-                print('select new Control :', min_control)
-                print('cost:', costs[min_control])
+                #print('\n\n#######################')
+                #print('select new Control :', min_control)
+                #print('cost:', costs[min_control])
                 agent.set_controller(*heuristics[min_control])
             self._controls[agent.id] = agent.get_control()
+
+            cost_base_heuristic = costs[min_control]
 
     def controls(self):
         """ Conduct rollout and return the control. """
