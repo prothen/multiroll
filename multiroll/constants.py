@@ -113,7 +113,7 @@ class Occupancy(enum.IntEnum):
 
 class Cost:
     NONE = 0
-    NO_TRANSITION = 1000
+    NO_TRANSITION = 20
     NOT_AT_TARGET = 10
     INFEASIBLE = 1000000
 
