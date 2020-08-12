@@ -39,6 +39,7 @@ class EdgeContainer(Utils):
         self.state2progress = dict()
         # State to edge direction for container (localise on edge)
         self.state2direction = dict()
+        # TODO: state2goal or property -> see rollout complexity
 
     def _get_direction(self, backward):
         """ Return the EdgeDirection for backward argument. """
