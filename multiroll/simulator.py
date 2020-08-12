@@ -16,22 +16,30 @@ class Simulation(multiroll.heuristic.ShortestPath):
         for agent in self.agents.values():
             self.sim_agents[agent.id] = SimAgentContainer(agent)
 
+        self.sim_agents_active = dict()
+        self.sim_agents_active.update(self.sim_agents)
+
         # Define state.id sorted occupancy of all states at current sim step
         self.occupancy = [Occupancy.FREE] * len(self.railway.values())
 
-    def _init_sim_occupancy(self):
-        self.occupancy = [Occupancy.FREE] * len(self.railway.values())
-        for agent in self.sim_agents.values():
-            coc_id = self.states[agent.state].coc.id
-            self.occupancy[coc_id] = Occupancy.OCCUPIED
+    def _update_active_agents(self):
+        agents_to_drop = list()
+        for agent in self.sim_agents_active.values():
+            if agent.status == AgentStatus.ON_TARGET:
+                agents_to_drop.append(agent.id)
+                continue
+        for agent_id in agents_to_drop:
+            self.sim_agents_active.pop(agent_id, None)
 
     def _reset_sim(self):
         """ Reset all simulation related objects and initialise correspondingly. """
-        # TODO: label reset_sim
-        #self.occupancy = [Occupancy.FREE] * len(self.railway.values())
-        for agent in self.sim_agents.values():
+        for agent in self.sim_agents_active.values():
             agent.reset()
-        self._init_sim_occupancy()
+
+        self.occupancy = [Occupancy.FREE] * len(self.railway.values())
+        for agent in self.sim_agents_active.values():
+            coc_id = self.states[agent.state].coc.id
+            self.occupancy[coc_id] = Occupancy.OCCUPIED
 
     def _transition(self, agent):
         """ Return true for successful transition and update agent state. """
@@ -65,12 +73,14 @@ class Simulation(multiroll.heuristic.ShortestPath):
     def simulate_steps(self, steps):
         """ Simulate steps and return total cost. """
 
+        print('Simulate for: ', len(self.sim_agents_active))
         cost = 0
         for step in range(steps):
-            for agent in self.sim_agents.values():
+            for agent in self.sim_agents_active.values():
                 target_id = self.railway[agent.target].id
 
                 if target_id == self.states[agent.state].coc.id:
+                    self.status = AgentStatus.ON_TARGET
                     coc_now = self.states[agent.state].coc
                     self.occupancy[coc_now.id] = Occupancy.FREE
                     continue
@@ -81,7 +91,7 @@ class Simulation(multiroll.heuristic.ShortestPath):
                 coc_next = self.states[state_next].coc
                 coc_now = self.states[agent.state].coc
 
-                if True: #False:
+                if True:
                     #print(self.occupancy)
                     print('\nAgent: ', agent.id)
                     print('From', agent.state, ' to ', state_next)
@@ -139,7 +149,7 @@ class SimAgentContainer(multiroll.agent.AgentContainer):
 
         """
         return self._agent.controller[self.state].control
-    
+ 
     def update(self):
         # TODO: debug update
         self._agent.update()
