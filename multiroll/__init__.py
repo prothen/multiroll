@@ -15,5 +15,5 @@ from multiroll import rollout
 from multiroll import display
 from multiroll import observation
 #
-from multiroll.parser import parser
+from multiroll.config import Config
 
