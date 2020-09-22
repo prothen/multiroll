@@ -23,9 +23,11 @@ from flatland.envs.schedule_generators import sparse_schedule_generator
 from multiroll import *
 from multiroll.timeme import *
 
+from multiroll.config import Config
 
 numpy.random.seed(1)
 
+config = Config()
 
 STEP_ACTIVE = True
 DISPLAY_ACTIVE = True
@@ -35,12 +37,12 @@ ROLL_IT = True
 H = 40
 W = 60
 SEED = 14
-N_AGENTS = 10
+N_AGENTS = 400
 N_CITIES = 9
 PLOT_STEPS = 2
-N_SIM_STEPS = 700
+N_SIM_STEPS = 100
 N_CONNECTIVITY = 4
-N_PREDICT_STEPS = 50
+N_PREDICT_STEPS = 30
 
 
 gen_schedule = sparse_schedule_generator({1:1})
@@ -85,7 +87,7 @@ def main():
                     debug_is_enabled=DEBUG)
     timeme('Multiroll Setup: ')
 
-    if DISPLAY_ACTIVE or STEP_ACTIVE:
+    if config.active('DISPLAY') or config.active('STEP'):
         controller.visualise()
         #input('####Start testbed?')
         timeme_reset()
@@ -102,24 +104,20 @@ def main():
         env.step(controls)
         timeme('Flatland - Env.step(): ')
 
-        if DISPLAY_ACTIVE and (not step % PLOT_STEPS):
+        if config.active('DISPLAY') and (not step % PLOT_STEPS):
             controller.visualise()
             timeme('Multiroll - Visualise: ')
 
-        if STEP_ACTIVE:
+        if config.active('STEP'):
             input('## --> Continue?'
                   + '\n##############')
             timeme_reset()
 
-    if DISPLAY_ACTIVE:
+    if config.active('DISPLAY'):
         controller.visualise()
         input('##Testbed: Completed! Press any key to close.')
 
 if __name__ == "__main__":
-    args = multiroll.parser.parse_args()
-    DISPLAY_ACTIVE = args.display_active
-    STEP_ACTIVE = args.step_active
-    ROLL_IT = args.rollout_active
-
+    config.parse_args()
     main()
 
