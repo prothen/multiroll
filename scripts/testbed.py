@@ -29,40 +29,25 @@ numpy.random.seed(1)
 
 config = Config()
 
-STEP_ACTIVE = True
-DISPLAY_ACTIVE = True
-DEBUG = True
-ROLL_IT = True
-
-H = 40
-W = 60
-SEED = 14
-N_AGENTS = 400
-N_CITIES = 9
-PLOT_STEPS = 2
-N_SIM_STEPS = 100
-N_CONNECTIVITY = 4
-N_PREDICT_STEPS = 30
-
 
 gen_schedule = sparse_schedule_generator({1:1})
 
 
 env = RailEnv(
-        width=H,
-        height=W,
+        width=config.params['H'],
+        height=config.params['W'],
         rail_generator=sparse_rail_generator(
-            max_num_cities=N_CITIES,
-            seed=SEED,
+            max_num_cities=config.params['N_CITIES'],
+            seed=config.params['SEED'],
             grid_mode=False,
             max_rails_between_cities=10,
-            max_rails_in_city=N_CONNECTIVITY,
+            max_rails_in_city=config.params['N_CONNECTIVITY'],
             ),
         schedule_generator=gen_schedule,
-        number_of_agents=N_AGENTS,
+        number_of_agents=config.params['N_AGENTS'],
         obs_builder_object=multiroll.observation.PlaceholderObs(),
-        remove_agents_at_target=True,
-        record_steps=False
+        remove_agents_at_target=config.params['REMOVE_AGENTS_AT_TARGET'],
+        record_steps=config.params['RECORD_STEPS']
         )
 
 
@@ -80,11 +65,11 @@ def main():
     timeme('Flatland - Reset: ')
 
     controller = multiroll.rollout.Rollout(
-                    rollit=ROLL_IT,
-                    prediction_steps=N_PREDICT_STEPS,
+                    rollit=config.active('ROLLOUT'),
+                    prediction_steps=config.params['N_PREDICT_STEPS'],
                     env=env,
                     env_renderer=env_renderer,
-                    debug_is_enabled=DEBUG)
+                    debug_is_enabled=config.active('DEBUG'))
     timeme('Multiroll Setup: ')
 
     if config.active('DISPLAY') or config.active('STEP'):
@@ -92,7 +77,7 @@ def main():
         #input('####Start testbed?')
         timeme_reset()
 
-    for step in range(N_SIM_STEPS):
+    for step in range(config.params['N_SIM_STEPS']):
         print('##IT', step)
 
         controller.update_agent_states()
@@ -104,7 +89,7 @@ def main():
         env.step(controls)
         timeme('Flatland - Env.step(): ')
 
-        if config.active('DISPLAY') and (not step % PLOT_STEPS):
+        if config.active('DISPLAY') and (not step % config.params['PLOT_STEPS']):
             controller.visualise()
             timeme('Multiroll - Visualise: ')
 
