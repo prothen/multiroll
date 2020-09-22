@@ -30,11 +30,13 @@ class MapParamsDefault(Params):
     N_CONNECTIVITY = 4
     N_AGENTS = 10
     N_CITIES = 9
+    REMOVE_AGENTS_AT_TARGET = True
+    RECORD_STEPS = False
 
 
 class VisualisationParamsDefault(Params):
-    N_SIM_STEP = 1000
-    PLOT_STEP = 2
+    N_SIM_STEPS = 100
+    PLOT_STEPS = 2
 
 
 class RolloutParamsDefault(Params):
@@ -76,7 +78,7 @@ class Config:
         # Boolean flags
         self._flags = dict()
         # Numerical values and parameters
-        self.param = dict()
+        self.params = dict()
         # Parser instance
         self._parser = None
 
@@ -88,11 +90,11 @@ class Config:
     def _initialise_params(self):
         # Define Visualisation defaults
         for entry, value in self._visualisation_params.list():
-            self.param[entry] = value
+            self.params[entry] = value
         for entry, value in self._map_params.list():
-            self.param[entry] = value
+            self.params[entry] = value
         for entry, value in self._rollout_params.list():
-            self.param[entry] = value
+            self.params[entry] = value
 
     def _initialise_flags(self):
         for entry, value in FlagsDefault.list():
