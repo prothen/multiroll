@@ -1,5 +1,7 @@
 # multiroll
-The multi-agent rollout Python implementation.
+Reinforcement learning approach to Flatland Neurips 2020 challenge using multi-agent rollout with graph based NetworkX abstraction.
+
+_Note: Repository is in a development stage but may be continued, if you encounter issues please let me know by opening an issue. It is very likely to be minor code inconsistencies or small obstacles from the setup process._
 
 
 ## Usage
