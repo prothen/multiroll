@@ -1,4 +1,9 @@
 #!/bin/env python
+"""
+
+    Author: Philipp Rothenhäusler, Stockholm 2020
+
+"""
 
 import networkx
 import matplotlib.pyplot
@@ -19,7 +24,7 @@ def renderer(func):
     return wrapper
 
 def report_states(states):
-    """ Report states via their states_containers and their metrics. 
+    """ Report states via their states_containers and their metrics.
 
         Note:
             Expects a list of graph.StateContainers
@@ -36,8 +41,8 @@ def show_path(env_renderer, path):
 
 @renderer
 def show_agents(env_renderer, agents):
-    """ Show states defined in StatesContainer through Flatland env_renderer. 
-    
+    """ Show states defined in StatesContainer through Flatland env_renderer.
+
         Todo:
             Update directions
     """
@@ -48,13 +53,13 @@ def show_agents(env_renderer, agents):
         env_renderer.gl.scatter(*(state.c, -state.r), color=Color.STATE, layer=1, marker="o", s=Dimension.STATE)
         env_renderer.gl.scatter(*(target.c, -target.r), color=Color.TARGET, layer=1, marker="o", s=Dimension.TARGET)
         #env_renderer.render_env(
-        #        show=True, 
-        #        show_agents=True, 
-         #       show_predictions=False, 
+        #        show=True,
+        #        show_agents=True,
+         #       show_predictions=False,
          #       show_observations=False)
 @renderer
 def show_states(env_renderer, states, color=Color.STATE, dimension=Dimension.STATE):
-    """ Show states defined in StatesContainer through Flatland env_renderer. 
+    """ Show states defined in StatesContainer through Flatland env_renderer.
 
         Todo:
             Update directions
@@ -63,17 +68,17 @@ def show_states(env_renderer, states, color=Color.STATE, dimension=Dimension.STA
         env_renderer.gl.scatter(*(state.c, -state.r), color=color,
                                 layer=1, marker="o", s=dimension)
         env_renderer.render_env(
-                show=True, 
-                show_agents=True, 
-                show_predictions=False, 
+                show=True,
+                show_agents=True,
+                show_predictions=False,
                 show_observations=False)
 
 @renderer
 def show(env_renderer):
     env_renderer.render_env(
-            show=True, 
-            show_agents=True, 
-            show_predictions=False, 
+            show=True,
+            show_agents=True,
+            show_predictions=False,
             show_observations=False)
     env_renderer.gl.show()
 

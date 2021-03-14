@@ -1,4 +1,9 @@
 #!/bin/env python
+"""
+
+    Author: Philipp Rothenhäusler, Stockholm 2020
+
+"""
 
 
 from .constants import *

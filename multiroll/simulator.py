@@ -1,4 +1,9 @@
 #!/bin/env python
+"""
+
+    Author: Philipp Rothenhäusler, Stockholm 2020
+
+"""
 
 
 from multiroll import *
@@ -50,8 +55,8 @@ class Simulation(multiroll.heuristic.ShortestPath):
 
         #print(self.occupancy)
         #print('From', agent.state, ' to ', state_next)
-        #print('next:' ,self.occupancy[coc_next.id]) 
-        #print('now:' ,self.occupancy[coc_now.id]) 
+        #print('next:' ,self.occupancy[coc_next.id])
+        #print('now:' ,self.occupancy[coc_now.id])
         #print('coc_now.id:',coc_now.id)
         #print('coc_next.id:',coc_next.id)
         if self.occupancy[coc_next.id] == Occupancy.OCCUPIED:
@@ -97,7 +102,7 @@ class Simulation(multiroll.heuristic.ShortestPath):
                     print('From', agent.state, ' to ', state_next)
                     print('Control: ', control)
                     print('Occupancy:' , self.occupancy[coc_now.id],
-                          '->' ,self.occupancy[coc_next.id]) 
+                          '->' ,self.occupancy[coc_next.id])
                 if Occupancy(self.occupancy[coc_next.id]) & Occupancy.OCCUPIED:
                     if control == DontMoveControl:
                         cost += Cost.NOT_AT_TARGET
@@ -152,7 +157,7 @@ class SimAgentContainer(multiroll.agent.AgentContainer):
 
         """
         return self._agent.controller[self.state].control
- 
+
     def update(self):
         # TODO: debug update
         self._agent.update()

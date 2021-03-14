@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+"""
+
+    Author: Philipp Rothenhäusler, Stockholm 2020
+
+"""
 
 import numpy
 

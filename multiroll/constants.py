@@ -1,4 +1,9 @@
 #!/bin/env python
+"""
+
+    Author: Philipp Rothenhäusler, Stockholm 2020
+
+"""
 
 import enum
 import collections
@@ -190,5 +195,5 @@ Direction2Target[Direction.W] = [1, -1]
     l. 52: color rgb tuple 255 (int, int, int)
 
     fl/utils/:
-        GraphicsLayer -> PILGL -> PILSVG  -> PGL 
+        GraphicsLayer -> PILGL -> PILSVG  -> PGL
 """

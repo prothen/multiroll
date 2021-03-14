@@ -1,4 +1,9 @@
 #!/bin/env python
+"""
+
+    Author: Philipp Rothenhäusler, Stockholm 2020
+
+"""
 
 from .constants import *
 from .framework import *
@@ -8,7 +13,7 @@ class CoordinateContainer(Utils):
     """ Create a container of information collected in a coordinate.
 
         Note:
-            Container to collect and extend information about railway 
+            Container to collect and extend information about railway
             coordinates.
 
         Todo:

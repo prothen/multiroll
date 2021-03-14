@@ -1,5 +1,10 @@
 #!/bin/env python
 
+"""
+
+    Author: Philipp Rothenhäusler, Stockholm 2020
+
+"""
 
 from multiroll import *
 
@@ -33,7 +38,7 @@ class Rollout(multiroll.simulator.Simulation):
         """ Update each agent state with most recent flatland states.
 
             Note:
-                This also updates the agent's current graph node 
+                This also updates the agent's current graph node
                 agent.current_node for the following heuristic algorithm.
 
         """

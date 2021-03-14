@@ -125,7 +125,7 @@ class AgentContainer(Utils):
         # TODO: document which cases are dropped her (RTD)
         if not self._agent.status == FlatlandAgentStatus.ACTIVE:
             if self._agent.status == FlatlandAgentStatus.DONE_REMOVED:
-                # TODO: set to None to identify post-goal access violations 
+                # TODO: set to None to identify post-goal access violations
                 # self.state = None
                 self.status = AgentStatus.ON_TARGET
             return

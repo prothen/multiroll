@@ -1,4 +1,9 @@
 #!/bin/env python
+"""
+
+    Author: Philipp Rothenhäusler, Stockholm 2020
+
+"""
 
 import argparse
 
@@ -103,13 +108,13 @@ class Config:
     def _initialise_parser(self):
         parser = argparse.ArgumentParser()
         parser.add_argument('--display', type=str2bool,
-                dest='DISPLAY', help='Enable visualisation', 
+                dest='DISPLAY', help='Enable visualisation',
                 default=True)
-        parser.add_argument('--step', type=str2bool, 
-                dest='STEP', help='Enable visualisation', 
+        parser.add_argument('--step', type=str2bool,
+                dest='STEP', help='Enable visualisation',
                 default=True)
-        parser.add_argument('--roll', type=str2bool, 
-                dest='ROLLOUT', help='Enable visualisation', 
+        parser.add_argument('--roll', type=str2bool,
+                dest='ROLLOUT', help='Enable visualisation',
                 default=True)
         self._parser = parser
 

@@ -4,7 +4,7 @@
 
 
     Note:
-        This module expects to be initialised with the 
+        This module expects to be initialised with the
         interfacing environment
 
             import graph
@@ -12,6 +12,10 @@
             graph.Graph(env)
 
         before usage of any subsequently defined classes.
+
+
+    Author: Philipp Rothenhäusler, Stockholm 2020
+
 """
 
 
@@ -116,7 +120,7 @@ class Graph(Utils):
         path.append(StateControl(state, ControlDirection(Control.S, None)))
         return path
 
-    def _define_edges_from_path(self, ingress_states, path, 
+    def _define_edges_from_path(self, ingress_states, path,
                                 edge_container_id):
         """ Parse entry_states and path into edges. """
         edges = list()
@@ -129,7 +133,7 @@ class Graph(Utils):
 
             priority = self.states[goal_state].priority
             pair = Pair(ingress_state, goal_state)
-            edge = Edge(pair, priority, edge_path, len(edge_path), 
+            edge = Edge(pair, priority, edge_path, len(edge_path),
                         edge_container_id)
 
             self.edge_collection[StateControl(ingress_state, control)] = edge
