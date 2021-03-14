@@ -55,6 +55,7 @@ class AgentContainer(Utils):
         return self.state
 
     def edge_container_ids(self):
+        """ TODO: Docstring missing and name ambiguous"""
         return [e.id for e in self.path_edge_containers]
 
     def find_railway_target(self):
@@ -120,7 +121,7 @@ class AgentContainer(Utils):
                 property access.
 
         """
-        print('Agent', self.id,':', self.status)
+        #print('Agent', self.id,':', self.status)
         # TODO: document which cases are dropped her (RTD)
         if not self._agent.status == FlatlandAgentStatus.ACTIVE:
             if self._agent.status == FlatlandAgentStatus.DONE_REMOVED:

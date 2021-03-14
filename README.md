@@ -31,10 +31,10 @@ And profile the code performance using
 ```
 which will show a graphical representation of the most time consuming methods.
 
+
 ## Contribution
-**Author**: Philipp Rothenhäusler (philipp.rothenhaeusler a t gmail.com)
+Any contribution is welcome.
+If you find missing instructions or something did not work as expected please create an issue and let me know.
 
-**Maintainer**: Philipp Rothenhäusler (philipp.rothenhaeusler a t gmail.com)
-
-## LICENSE
-All rights are reserved.
+## License
+See the `LICENSE` file for details of the available open source licensing.

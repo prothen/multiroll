@@ -73,7 +73,7 @@ class Simulation(multiroll.heuristic.ShortestPath):
     def simulate_steps(self, steps):
         """ Simulate steps and return total cost. """
 
-        print('Simulate for: ', len(self.sim_agents_active))
+        #print('Simulate for: ', len(self.sim_agents_active))
         cost = 0
         for step in range(steps):
             for agent in self.sim_agents_active.values():
@@ -91,7 +91,7 @@ class Simulation(multiroll.heuristic.ShortestPath):
                 coc_next = self.states[state_next].coc
                 coc_now = self.states[agent.state].coc
 
-                if True:
+                if False:
                     #print(self.occupancy)
                     print('\nAgent: ', agent.id)
                     print('From', agent.state, ' to ', state_next)
