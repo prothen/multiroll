@@ -5,4 +5,3 @@ multiroll
    :maxdepth: 4
 
    multiroll
-   setup
