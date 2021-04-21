@@ -6,13 +6,14 @@
 """
 
 import enum
+import flatland
 import collections
 
+from flatland import envs
+from flatland.envs import agent_utils
 
-import flatland
 
-
-FlatlandAgentStatus = flatland.envs.agent_utils.RailAgentStatus
+FlatlandAgentStatus = agent_utils.RailAgentStatus
 
 
 # Defines a coordinate with row and column
